@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Binghamton Development Atlas</title>
+    <title>Binghamton University Drone Photogrammetry</title>
     <style>
         body {
-            margin: 0;
-            padding: 0;
-            background-color: #030303; /* Near black */
+            margin: 0; padding: 0;
+            background-color: #030303;
             overflow: hidden;
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
             color: #fff;
@@ -16,36 +15,14 @@
 
         #canvas-container {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
             z-index: 1;
         }
 
-        /* Loading Screen (Needed while Earth texture loads) */
-        #loading-screen {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background-color: #030303;
-            display: flex; flex-direction: column;
-            justify-content: center; align-items: center;
-            z-index: 100;
-            transition: opacity 1s ease;
-        }
-
-        #loading-text {
-            color: #fff;
-            font-size: 0.9rem;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            opacity: 0.7;
-        }
-
-        /* --- Glassmorphic UI Elements --- */
+        /* Glassmorphic UI Elements */
         .glass-panel {
-            background: rgba(20, 20, 20, 0.3);
+            background: rgba(20, 20, 20, 0.4);
             backdrop-filter: blur(15px);
             -webkit-backdrop-filter: blur(15px);
             border: 1px solid rgba(255, 255, 255, 0.1);
@@ -54,21 +31,10 @@
             z-index: 10;
         }
 
-        /* Project List Panel (Bottom Left) */
         #ui-panel {
             position: absolute;
-            bottom: 5%;
-            left: 3%;
-            width: 320px;
-            padding: 25px;
-            opacity: 0; /* Hidden initially for intro anim */
-            transform: translateY(20px);
-            transition: opacity 1s ease 1s, transform 1s ease 1s; /* delayed fade in */
-        }
-
-        #ui-panel.visible {
-            opacity: 1;
-            transform: translateY(0);
+            bottom: 5%; left: 3%;
+            width: 320px; padding: 25px;
         }
 
         #ui-panel h2 {
@@ -105,11 +71,9 @@
 
         .model-item h3 {
             margin: 0 0 3px 0;
-            font-size: 1rem;
-            font-weight: 400;
+            font-size: 1rem; font-weight: 400;
         }
 
-        /* Glowing indicator */
         .model-item::before {
             content: '';
             position: absolute;
@@ -125,93 +89,51 @@
 
         .model-item:hover::before { opacity: 1; }
 
-        /* Project Titles (Labels over the POI markers in 3D space) */
+        /* Project Titles in 3D Space */
         .poi-label {
             color: #fff;
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
             font-size: 0.8rem;
             text-transform: uppercase;
             letter-spacing: 2px;
             background: rgba(20, 20, 20, 0.6);
             backdrop-filter: blur(5px);
-            -webkit-backdrop-filter: blur(5px);
             padding: 5px 10px;
             border-radius: 4px;
             border: 1px solid rgba(255, 255, 255, 0.1);
             white-space: nowrap;
-            pointer-events: none; /* Let clicks pass through to 3D scene if needed */
-            opacity: 0; /* Hidden initially */
-            transition: opacity 0.8s ease;
-        }
-
-        .poi-label.visible { opacity: 1; }
-
-        /* Dynamic Preview Card (appears on hover) */
-        #preview-card {
-            position: fixed;
-            bottom: 5%;
-            left: calc(3% + 340px); /* Positioned next to list panel */
-            width: 250px;
-            height: 180px;
-            padding: 10px;
-            display: flex; flex-direction: column;
             pointer-events: none;
-            opacity: 0;
-            transform: scale(0.9);
-            transition: opacity 0.4s ease, transform 0.4s ease;
-            z-index: 20;
-        }
-
-        #preview-card.visible {
-            opacity: 1;
-            transform: scale(1);
-        }
-
-        #preview-image {
-            width: 100%; height: 100%;
-            border-radius: 8px;
-            background-size: cover;
-            background-position: center;
-            background-color: #222; /* Placeholder color */
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            opacity: 0.8;
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
 
-    <div id="loading-screen">
-        <div id="loading-text">Generating Global Grid</div>
-    </div>
-
     <div id="ui-panel" class="glass-panel">
-        <h2>Binghamton Projects</h2>
+        <h2>Binghamton Sites</h2>
         <ul class="model-list">
             <li class="model-item" 
                 data-id="gannett" 
                 data-lat="42.0987" data-lon="-75.9125" 
-                data-preview="thumb-gannett.jpg" 
+                data-map="map-gannett.png" 
                 data-url="viewer.html?model=gannett">
                 <h3>Gannett Building</h3>
             </li>
             <li class="model-item" 
                 data-id="alpha" 
                 data-lat="42.1030" data-lon="-75.9180" 
-                data-preview="thumb-alpha.jpg" 
+                data-map="map-alpha.png" 
                 data-url="viewer.html?model=alpha">
                 <h3>Innovation Center</h3>
             </li>
             <li class="model-item" 
                 data-id="beta" 
                 data-lat="42.0950" data-lon="-75.9050" 
-                data-preview="thumb-beta.jpg" 
+                data-map="map-beta.png" 
                 data-url="viewer.html?model=beta">
                 <h3>Riverside Complex</h3>
             </li>
         </ul>
-    </div>
-
-    <div id="preview-card" class="glass-panel">
-        <div id="preview-image"></div>
     </div>
 
     <div id="canvas-container"></div>
@@ -221,168 +143,120 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 
     <script>
-        // --- 1. Basic Three.js Setup ---
+        // --- 1. Scene Setup ---
         const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
         
-        // Start camera far away for global view
         const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 0, 100); 
+        camera.position.set(0, 0, 70); // Starts zoomed out
 
-        // WebGL Renderer (Main 3D view)
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         container.appendChild(renderer.domElement);
 
-        // CSS2D Renderer (For HTML Labels over 3D markers)
         const labelRenderer = new THREE.CSS2DRenderer();
         labelRenderer.setSize(window.innerWidth, window.innerHeight);
         labelRenderer.domElement.style.position = 'absolute';
         labelRenderer.domElement.style.top = '0px';
-        labelRenderer.domElement.style.pointerEvents = 'none'; // Clicks pass through to WebGL
+        labelRenderer.domElement.style.pointerEvents = 'none';
         container.appendChild(labelRenderer.domElement);
 
-        // Object grouping for rotation
         const earthGroup = new THREE.Group();
-        // Tilting Earth slightly (seasonal tilt)
-        earthGroup.rotation.z = -23.4 * (Math.PI / 180); 
         scene.add(earthGroup);
 
-        // Lighting
-        const ambientLight = new THREE.AmbientLight(0xffxffx, 0.8);
-        scene.add(ambientLight);
-        
-        const dLight = new THREE.DirectionalLight(0xffffff, 1);
-        dLight.position.set(5, 3, 5);
-        scene.add(dLight);
+        // --- 2. Create Wireframe Globe ---
+        const earthRadius = 20;
 
-        // --- 2. Defining Binghamton Focus ---
-        // Coordinates for Binghamton, NY
-        const binghamtonCoords = { lat: 42.0987, lon: -75.9125 };
-        const earthRadius = 25;
-
-        // --- 3. Creating the Glass & Wireframe Globe ---
-        const textureLoader = new THREE.TextureLoader();
-        
-        // Setup Loading Manager for the intro transition
-        THREE.DefaultLoadingManager.onLoad = function ( ) {
-            // Once textures are loaded, start intro animation
-            setTimeout(startIntroAnimation, 500);
-        };
-
-        // A. The Inner Earth (Continents)
-        // You MUST have 'map-outlines.png' in the folder.
-        // Needs to be a transparent map texture.
-        const earthTexture = textureLoader.load('map-outlines.png'); 
-        
+        // Dark inner core
         const innerGeom = new THREE.SphereGeometry(earthRadius, 64, 64);
-        const innerMat = new THREE.MeshPhongMaterial({ 
-            map: earthTexture,
-            color: 0x111111, // Very dark landmasses
-            transparent: true,
-            opacity: 0.8,
-            specular: 0x333333,
-            shininess: 20
-        });
+        const innerMat = new THREE.MeshBasicMaterial({ color: 0x0a0a0a });
         const innerEarth = new THREE.Mesh(innerGeom, innerMat);
         earthGroup.add(innerEarth);
 
-        // B. The Outer Glass Shell (Translucency and Gloss)
-        const glassGeom = new THREE.SphereGeometry(earthRadius + 0.5, 64, 64);
-        const glassMat = new THREE.MeshPhysicalMaterial({ 
-            color: 0xffffff,
-            metalness: 0.1,
-            roughness: 0.15,
-            transmission: 0.9, // High transparency
-            ior: 1.5, // Index of refraction
-            reflectivity: 0.5,
-            transparent: true,
-            opacity: 0.2, // Base shell opacity
-            clearcoat: 1.0,
-            clearcoatRoughness: 0.1,
-        });
-        const glassShell = new THREE.Mesh(glassGeom, glassMat);
-        earthGroup.add(glassShell);
-
-        // C. The Wireframe Grid Overlay (Geometric Tech look)
-        const wireGeom = new THREE.IcosahedronGeometry(earthRadius + 0.8, 3);
+        // Wireframe geometric shell
+        const wireGeom = new THREE.IcosahedronGeometry(earthRadius + 0.2, 4);
         const wireMat = new THREE.MeshBasicMaterial({ 
             color: 0x444444, 
             wireframe: true, 
             transparent: true, 
-            opacity: 0.1 
+            opacity: 0.15 
         });
         const wireframeCube = new THREE.Mesh(wireGeom, wireMat);
         earthGroup.add(wireframeCube);
 
-
-        // --- 4. Math Helper: Lat/Lon to 3D Space (Vector3) ---
+        // --- 3. Math Helper (Lat/Lon to 3D) ---
         function getCoordinates(lat, lon, radius) {
             const phi = (90 - lat) * (Math.PI / 180);
             const theta = (lon + 180) * (Math.PI / 180);
-            
             const x = -(radius * Math.sin(phi) * Math.cos(theta));
             const z = (radius * Math.sin(phi) * Math.sin(theta));
             const y = (radius * Math.cos(phi));
-            
             return new THREE.Vector3(x, y, z);
         }
 
-        // --- 5. Creating POI Markers and Labels ---
+        // Binghamton Coordinates (for default framing)
+        const binghamtonCoords = { lat: 42.0987, lon: -75.9125 };
+
+        // --- 4. Setup Markers & Terrain Patches ---
+        const textureLoader = new THREE.TextureLoader();
         const poiGeometry = new THREE.SphereGeometry(0.15, 16, 16);
-        const poiMaterial = new THREE.MeshBasicMaterial({ 
-            color: 0x00ffff,
-            transparent: true,
-            opacity: 0 // Hidden initially
-        });
+        const poiMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffff });
 
-        const projectItems = document.querySelectorAll('.model-item');
-        const markers = [];
-        const labels = [];
+        const items = document.querySelectorAll('.model-item');
+        let activePatch = null; // Keeps track of currently visible terrain patch
 
-        projectItems.forEach(item => {
+        items.forEach(item => {
             const lat = parseFloat(item.getAttribute('data-lat'));
             const lon = parseFloat(item.getAttribute('data-lon'));
             const name = item.querySelector('h3').textContent;
+            const mapSrc = item.getAttribute('data-map');
             
-            // Generate 3D Marker
-            const marker = new THREE.Mesh(poiGeometry, poiMaterial.clone());
-            // Markers are placed slightly higher than the glass shell
-            const pos = getCoordinates(lat, lon, earthRadius + 0.7); 
+            // A. Create Cyan Marker
+            const marker = new THREE.Mesh(poiGeometry, poiMaterial);
+            const pos = getCoordinates(lat, lon, earthRadius + 0.3);
             marker.position.copy(pos);
             earthGroup.add(marker);
-            markers.push(marker);
 
-            // Generate HTML Label (CSS2D)
+            // B. Create HTML Label
             const labelDiv = document.createElement('div');
             labelDiv.className = 'poi-label';
             labelDiv.textContent = name;
-            
             const label = new THREE.CSS2DObject(labelDiv);
-            // Position label slightly above the marker
-            label.position.set(0, 0.4, 0); 
-            marker.add(label); // Attach label to the marker itself
-            labels.push(labelDiv);
+            label.position.set(0, 0, 0);
+            marker.add(label);
 
-            // --- 6. Interaction Logic (Hover Menu List) ---
-            const previewCard = document.getElementById('preview-card');
-            const previewImg = document.getElementById('preview-image');
+            // C. Create the Terrain Overlay Patch (Hidden initially)
+            // A circular patch that hugs the globe
+            const patchGeom = new THREE.CircleGeometry(3, 64); // 3 is the radius size of the terrain map
+            const patchTexture = textureLoader.load(mapSrc);
+            const patchMat = new THREE.MeshBasicMaterial({
+                map: patchTexture,
+                transparent: true,
+                opacity: 0, // Invisible until hover
+                depthWrite: false, // Prevents z-fighting glitches
+                side: THREE.DoubleSide
+            });
+            const terrainPatch = new THREE.Mesh(patchGeom, patchMat);
+            
+            // Position the patch slightly above the wireframe to prevent clipping
+            const patchPos = getCoordinates(lat, lon, earthRadius + 0.4);
+            terrainPatch.position.copy(patchPos);
+            
+            // Orient the patch to face perfectly outwards from the center of the earth
+            terrainPatch.lookAt(patchPos.clone().multiplyScalar(2));
+            earthGroup.add(terrainPatch);
 
-            // HOVER LIST ITEM: Zoom closer to marker and show preview card
+            // --- 5. Hover Interactions ---
             item.addEventListener('mouseenter', () => {
                 autoRotate = false;
-                const previewSrc = item.getAttribute('data-preview');
+                activePatch = terrainPatch;
 
-                // Update Preview Card
-                previewImg.style.backgroundImage = `url(${previewSrc})`;
-                previewCard.classList.add('visible');
-
-                // Calculate exact rotation for this marker
+                // Calculate rotation to center the marker
                 const targetRotationY = -((lon - 90) * (Math.PI / 180));
-                const targetRotationX = (lat - 10) * (Math.PI / 180); // Offset slightly for UI
+                const targetRotationX = lat * (Math.PI / 180);
 
-                // Smoothly rotate globe to POI
+                // 1. Rotate Globe
                 gsap.to(earthGroup.rotation, {
                     x: targetRotationX,
                     y: targetRotationY,
@@ -390,120 +264,85 @@
                     ease: "power2.out"
                 });
 
-                // Zoom camera very tight
+                // 2. Zoom Camera Closer
                 gsap.to(camera.position, {
-                    z: 32, // Super close focus
+                    z: 32, // Zoom in
                     duration: 1.2,
                     ease: "power2.out"
                 });
+
+                // 3. Fade in the localized terrain patch
+                gsap.to(terrainPatch.material, {
+                    opacity: 0.9,
+                    duration: 0.8,
+                    delay: 0.3 // slight delay so it fades in while rotating
+                });
             });
 
-            // MOUSE LEAVE ITEM: Return to Binghamton overview
             item.addEventListener('mouseleave', () => {
-                previewCard.classList.remove('visible');
-                returnToBinghamtonOverview();
+                // Fade out the terrain patch
+                if (activePatch) {
+                    gsap.to(activePatch.material, {
+                        opacity: 0,
+                        duration: 0.5
+                    });
+                    activePatch = null;
+                }
+
+                // Restore idle Binghamton view
+                gsap.to(earthGroup.rotation, {
+                    x: binghamtonCoords.lat * (Math.PI / 180),
+                    y: -((binghamtonCoords.lon - 90) * (Math.PI / 180)),
+                    duration: 1.5,
+                    ease: "power2.inOut",
+                    onComplete: () => { autoRotate = true; }
+                });
+
+                gsap.to(camera.position, {
+                    z: 45, // Pull back out slightly
+                    duration: 1.5,
+                    ease: "power2.inOut"
+                });
             });
 
-            // CLICK ITEM: rapid zoom-in and redirect to viewer.html
             item.addEventListener('click', () => {
                 const url = item.getAttribute('data-url');
+                document.getElementById('ui-panel').style.opacity = '0';
                 
-                // Hide UI
-                document.getElementById('ui-panel').classList.remove('visible');
-                previewCard.classList.remove('visible');
-
-                // Rapid zoom straight into marker
+                // Rapid zoom into the terrain map before redirecting
                 gsap.to(camera.position, {
-                    z: earthRadius + 1,
+                    z: earthRadius + 1.5,
                     duration: 0.8,
                     ease: "power3.in",
-                    onComplete: () => {
-                        window.location.href = url; // Redirect
-                    }
+                    onComplete: () => { window.location.href = url; }
                 });
             });
         });
 
+        // --- 6. Initial Positioning & Animation ---
+        let autoRotate = true;
 
-        // --- 7. Intro Animation Sequence ---
-        let introComplete = false;
-        let autoRotate = false;
+        // Start facing Binghamton immediately
+        earthGroup.rotation.x = binghamtonCoords.lat * (Math.PI / 180);
+        earthGroup.rotation.y = -((binghamtonCoords.lon - 90) * (Math.PI / 180));
 
-        function startIntroAnimation() {
-            // Fade out loading screen
-            document.getElementById('loading-screen').style.opacity = '0';
-            setTimeout(() => {
-                document.getElementById('loading-screen').style.display = 'none';
-            }, 1000);
+        // Intro Zoom-in
+        gsap.to(camera.position, {
+            z: 45,
+            duration: 2.5,
+            ease: "power2.out"
+        });
 
-            // Set initial Earth rotation to face Binghamton before zooming
-            earthGroup.rotation.y = -((binghamtonCoords.lon - 90) * (Math.PI / 180));
-            // Tilt Earth so Binghamton is visible, offset by seasonal tilt
-            earthGroup.rotation.x = binghamtonCoords.lat * (Math.PI / 180);
-
-            // Timeline for smooth sequence
-            const tl = gsap.timeline({
-                onComplete: () => {
-                    introComplete = true;
-                    // Fade in UI Panel and POI Labels
-                    document.getElementById('ui-panel').classList.add('visible');
-                    labels.forEach(l => l.classList.add('visible'));
-                    // Make markers visible (opacity fade)
-                    markers.forEach(m => m.material.opacity = 0.8);
-                }
-            });
-
-            // 1. Zoom from far globe view into Binghamton Area
-            tl.to(camera.position, {
-                z: 40, // Closer look at NY
-                duration: 3,
-                ease: "power2.inOut"
-            }, "+=0.5"); // small delay
-
-            // 2. Slow rotation drift during zoom
-            tl.to(earthGroup.rotation, {
-                y: earthGroup.rotation.y + 0.1, 
-                duration: 3,
-                ease: "power1.inOut"
-            }, "<"); // start at same time as zoom
-        }
-
-        function returnToBinghamtonOverview() {
-            // Rotate back to Binghamton coordinates
-            gsap.to(earthGroup.rotation, {
-                x: binghamtonCoords.lat * (Math.PI / 180),
-                y: -((binghamtonCoords.lon - 90) * (Math.PI / 180)) + 0.1,
-                duration: 1.5,
-                ease: "power2.inOut"
-            });
-
-            // Restore Binghamton overview zoom
-            gsap.to(camera.position, {
-                z: 40,
-                duration: 1.5,
-                ease: "power2.inOut",
-                onComplete: () => {
-                    if (introComplete) autoRotate = false; // Stay focused
-                }
-            });
-        }
-
-
-        // --- 8. Animation Loop ---
         function animate() {
             requestAnimationFrame(animate);
-            
-            // Very slow drift only if not interacting and intro is over
-            if (autoRotate && introComplete) {
-                earthGroup.rotation.y += 0.0005;
+            if (autoRotate) {
+                earthGroup.rotation.y += 0.0005; // Very slow drift
             }
-            
             renderer.render(scene, camera);
-            labelRenderer.render(scene, camera); // Render HTML labels
+            labelRenderer.render(scene, camera);
         }
         animate();
 
-        // --- 9. Handle Window Resize ---
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
