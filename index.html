@@ -195,7 +195,6 @@
         scene.add(earthGroup);
 
         // --- 2. Math Helper (Lat/Lon to 3D Vector) ---
-        // We define this BEFORE the globe so the GeoJSON parser can use it
         function getCoordinates(lat, lon, radius) {
             const phi = (90 - lat) * (Math.PI / 180);
             const theta = (lon + 180) * (Math.PI / 180);
@@ -205,24 +204,31 @@
             return new THREE.Vector3(x, y, z);
         }
 
+        // NEW HELPER: Prevents globe from spinning wildly backwards when targeting a location
+        function getShortestRotationY(currentY, targetLon) {
+            // Correct math to center a longitude perfectly on screen
+            const targetYBase = -(targetLon + 90) * (Math.PI / 180); 
+            let diff = targetYBase - (currentY % (Math.PI * 2));
+            if (diff > Math.PI) diff -= Math.PI * 2;
+            if (diff < -Math.PI) diff += Math.PI * 2;
+            return currentY + diff;
+        }
+
         const earthRadius = 20;
 
         // --- 3. Create Core Sphere & Vector Continents (NO IMAGES) ---
-        // Dark inner core
         const innerGeom = new THREE.SphereGeometry(earthRadius, 64, 64);
         const innerMat = new THREE.MeshBasicMaterial({ 
-            color: 0x111111, // Dark base
+            color: 0x111111, 
             transparent: true,
             opacity: 0.95
         });
         const innerEarth = new THREE.Mesh(innerGeom, innerMat);
         earthGroup.add(innerEarth);
 
-        // Fetch and draw accurate GeoJSON world map lines
         fetch('https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json')
             .then(response => response.json())
             .then(data => {
-                // Vector line material (Glowing blue/grey)
                 const lineMaterial = new THREE.LineBasicMaterial({ 
                     color: 0x336688, 
                     transparent: true, 
@@ -243,10 +249,8 @@
             coordinates.forEach(ring => {
                 const points = [];
                 ring.forEach(coord => {
-                    // GeoJSON coordinates are formatted as [longitude, latitude]
                     const lon = coord[0];
                     const lat = coord[1];
-                    // Plot lines slightly above the core sphere (Radius + 0.05) to prevent clipping
                     points.push(getCoordinates(lat, lon, earthRadius + 0.05)); 
                 });
                 const geometry = new THREE.BufferGeometry().setFromPoints(points);
@@ -255,7 +259,6 @@
             });
         }
 
-        // Geometric outer wireframe shell
         const wireGeom = new THREE.IcosahedronGeometry(earthRadius + 0.2, 4);
         const wireMat = new THREE.MeshBasicMaterial({ 
             color: 0x444444, 
@@ -283,13 +286,11 @@
             const coordText = item.querySelector('.coord-display').textContent;
             const mapSrc = item.getAttribute('data-map');
             
-            // A. Create Cyan Marker
             const marker = new THREE.Mesh(poiGeometry, poiMaterial);
             const pos = getCoordinates(lat, lon, earthRadius + 0.3);
             marker.position.copy(pos);
             earthGroup.add(marker);
 
-            // B. Create HTML Label with Title and Coordinates
             const labelDiv = document.createElement('div');
             labelDiv.className = 'poi-label';
             labelDiv.innerHTML = `
@@ -301,12 +302,11 @@
             marker.add(label);
             labels.push(labelDiv);
 
-            // C. Create the CURVED Terrain Overlay Patch
             const patchRadius = 3; 
             const patchGeom = new THREE.CircleGeometry(patchRadius, 64);
             const posAttribute = patchGeom.attributes.position;
             const v = new THREE.Vector3();
-            const curveRadius = earthRadius + 0.4; // Sits above vectors
+            const curveRadius = earthRadius + 0.4; 
             
             for (let i = 0; i < posAttribute.count; i++) {
                 v.fromBufferAttribute(posAttribute, i);
@@ -336,7 +336,8 @@
                 autoRotate = false;
                 activePatch = terrainPatch;
 
-                const targetRotationY = -((lon - 90) * (Math.PI / 180));
+                // Grab precise path to marker without un-spinning
+                const targetRotationY = getShortestRotationY(earthGroup.rotation.y, lon);
                 const targetRotationX = (lat + 12) * (Math.PI / 180);
 
                 gsap.to(earthGroup.rotation, {
@@ -365,9 +366,12 @@
                     activePatch = null;
                 }
 
+                // Smoothly return to default Binghamton center
+                const targetRotationY = getShortestRotationY(earthGroup.rotation.y, binghamtonCoords.lon);
+                
                 gsap.to(earthGroup.rotation, {
                     x: binghamtonCoords.lat * (Math.PI / 180),
-                    y: -((binghamtonCoords.lon - 90) * (Math.PI / 180)),
+                    y: targetRotationY,
                     duration: 1.5,
                     ease: "power2.inOut",
                     onComplete: () => { autoRotate = true; }
@@ -397,8 +401,9 @@
         // --- 6. Start Animation Sequence ---
         let autoRotate = false;
 
-        earthGroup.rotation.y = Math.PI; 
-        earthGroup.rotation.x = 0;
+        // Intro Camera (Start over Europe: 48° N, 15° E)
+        earthGroup.rotation.x = 48 * (Math.PI / 180); 
+        earthGroup.rotation.y = -(15 + 90) * (Math.PI / 180); 
 
         const tl = gsap.timeline({
             onComplete: () => { 
@@ -416,7 +421,7 @@
 
         tl.to(earthGroup.rotation, {
             x: binghamtonCoords.lat * (Math.PI / 180),
-            y: -((binghamtonCoords.lon - 90) * (Math.PI / 180)),
+            y: -(binghamtonCoords.lon + 90) * (Math.PI / 180),
             duration: 3,
             ease: "power3.inOut"
         }, "<");
