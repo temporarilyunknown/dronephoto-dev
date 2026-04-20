@@ -38,6 +38,8 @@
             padding: 15px 35px;
             opacity: 0; /* Hidden for start animation */
             text-align: center;
+            border: none !important; /* Removes the light blue border */
+            background: rgba(20, 20, 20, 0.6); /* Slightly darker to compensate for no border */
         }
 
         #title-panel h1 {
@@ -77,14 +79,15 @@
             border: 1px solid transparent;
             border-radius: 8px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
             position: relative;
         }
 
-        .model-item:hover {
-            background: rgba(255, 255, 255, 0.08);
-            border-color: rgba(255, 255, 255, 0.2);
-            transform: translateX(5px);
+        /* Active State used by the Auto-Tour and Hover */
+        .model-item.active, .model-item:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(0, 255, 255, 0.4);
+            transform: translateX(10px);
         }
 
         .model-item h3 {
@@ -109,12 +112,15 @@
             width: 6px; height: 6px;
             background-color: #00ffff;
             border-radius: 50%;
-            box-shadow: 0 0 10px #00ffff;
             opacity: 0.2;
-            transition: opacity 0.3s ease;
+            transition: all 0.4s ease;
         }
 
-        .model-item:hover::before { opacity: 1; }
+        .model-item.active::before, .model-item:hover::before { 
+            opacity: 1; 
+            box-shadow: 0 0 12px #00ffff;
+            background-color: #fff;
+        }
 
         /* Project Titles & Coordinates in 3D Space */
         .poi-label {
@@ -197,7 +203,7 @@
         const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
         
-        // Push camera starting position way out for dramatic zoom
+        // Start camera way out
         const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.set(0, 0, 200); 
 
@@ -216,7 +222,7 @@
         const earthGroup = new THREE.Group();
         scene.add(earthGroup);
 
-        // --- 2. Math Helper (Lat/Lon to 3D Vector) ---
+        // --- 2. Math Helpers ---
         function getCoordinates(lat, lon, radius) {
             const phi = (90 - lat) * (Math.PI / 180);
             const theta = (lon + 180) * (Math.PI / 180);
@@ -226,7 +232,7 @@
             return new THREE.Vector3(x, y, z);
         }
 
-        // Prevents globe from spinning wildly backwards when targeting a location
+        // Prevents unwinding on rotations
         function getShortestRotationY(currentY, targetLon) {
             const targetYBase = -(targetLon + 90) * (Math.PI / 180); 
             let diff = targetYBase - (currentY % (Math.PI * 2));
@@ -237,7 +243,7 @@
 
         const earthRadius = 20;
 
-        // --- 3. Create Core Sphere & Vector Continents (NO IMAGES) ---
+        // --- 3. Create Core Sphere & Vector Continents ---
         const innerGeom = new THREE.SphereGeometry(earthRadius, 64, 64);
         const innerMat = new THREE.MeshBasicMaterial({ 
             color: 0x111111, 
@@ -250,30 +256,18 @@
         fetch('https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json')
             .then(response => response.json())
             .then(data => {
-                const lineMaterial = new THREE.LineBasicMaterial({ 
-                    color: 0x336688, 
-                    transparent: true, 
-                    opacity: 0.6 
-                });
-
+                const lineMaterial = new THREE.LineBasicMaterial({ color: 0x336688, transparent: true, opacity: 0.6 });
                 data.features.forEach(feature => {
                     const geometry = feature.geometry;
-                    if (geometry.type === 'Polygon') {
-                        drawPolygon(geometry.coordinates, lineMaterial);
-                    } else if (geometry.type === 'MultiPolygon') {
-                        geometry.coordinates.forEach(polygon => drawPolygon(polygon, lineMaterial));
-                    }
+                    if (geometry.type === 'Polygon') drawPolygon(geometry.coordinates, lineMaterial);
+                    else if (geometry.type === 'MultiPolygon') geometry.coordinates.forEach(polygon => drawPolygon(polygon, lineMaterial));
                 });
             });
 
         function drawPolygon(coordinates, material) {
             coordinates.forEach(ring => {
                 const points = [];
-                ring.forEach(coord => {
-                    const lon = coord[0];
-                    const lat = coord[1];
-                    points.push(getCoordinates(lat, lon, earthRadius + 0.05)); 
-                });
+                ring.forEach(coord => { points.push(getCoordinates(coord[1], coord[0], earthRadius + 0.05)); });
                 const geometry = new THREE.BufferGeometry().setFromPoints(points);
                 const line = new THREE.Line(geometry, material);
                 earthGroup.add(line);
@@ -281,26 +275,22 @@
         }
 
         const wireGeom = new THREE.IcosahedronGeometry(earthRadius + 0.2, 4);
-        const wireMat = new THREE.MeshBasicMaterial({ 
-            color: 0x444444, 
-            wireframe: true, 
-            transparent: true, 
-            opacity: 0.1 
-        });
+        const wireMat = new THREE.MeshBasicMaterial({ color: 0x444444, wireframe: true, transparent: true, opacity: 0.1 });
         const wireframeCube = new THREE.Mesh(wireGeom, wireMat);
         earthGroup.add(wireframeCube);
 
-        // --- 4. Setup Markers & Labels ---
+        // --- 4. Setup Markers & Variables ---
         const binghamtonCoords = { lat: 42.0987, lon: -75.9125 };
         const poiGeometry = new THREE.SphereGeometry(0.15, 16, 16);
         const poiMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffff });
         const textureLoader = new THREE.TextureLoader();
-
+        
         const items = document.querySelectorAll('.model-item');
-        let activePatch = null; 
         const labels = [];
+        let tourTimer = null;
+        let tourIndex = 0;
 
-        items.forEach(item => {
+        items.forEach((item, index) => {
             const lat = parseFloat(item.getAttribute('data-lat'));
             const lon = parseFloat(item.getAttribute('data-lon'));
             const name = item.querySelector('h3').textContent;
@@ -314,10 +304,7 @@
 
             const labelDiv = document.createElement('div');
             labelDiv.className = 'poi-label';
-            labelDiv.innerHTML = `
-                <span class="title">${name}</span>
-                <span class="coords">${coordText}</span>
-            `;
+            labelDiv.innerHTML = `<span class="title">${name}</span><span class="coords">${coordText}</span>`;
             const label = new THREE.CSS2DObject(labelDiv);
             label.position.set(0, 0, 0);
             marker.add(label);
@@ -339,11 +326,7 @@
 
             const patchTexture = textureLoader.load(mapSrc);
             const patchMat = new THREE.MeshBasicMaterial({
-                map: patchTexture,
-                transparent: true,
-                opacity: 0, 
-                depthWrite: false, 
-                side: THREE.DoubleSide
+                map: patchTexture, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide
             });
             const terrainPatch = new THREE.Mesh(patchGeom, patchMat);
             
@@ -352,60 +335,15 @@
             terrainPatch.lookAt(patchPos.clone().multiplyScalar(2));
             earthGroup.add(terrainPatch);
 
-            // --- 5. Hover Interactions ---
+            // Store references directly on the DOM element for the Tour function to use
+            item._lat = lat;
+            item._lon = lon;
+            item._terrainPatch = terrainPatch;
+
+            // --- 5. Interactive Event Listeners ---
             item.addEventListener('mouseenter', () => {
-                autoRotate = false;
-                activePatch = terrainPatch;
-
-                // Grab precise path to marker without un-spinning
-                const targetRotationY = getShortestRotationY(earthGroup.rotation.y, lon);
-                // Removed the +12 offset so the target centers perfectly
-                const targetRotationX = lat * (Math.PI / 180);
-
-                gsap.to(earthGroup.rotation, {
-                    x: targetRotationX,
-                    y: targetRotationY,
-                    duration: 1.2,
-                    ease: "power2.out"
-                });
-
-                // Zoom in tighter on hover
-                gsap.to(camera.position, {
-                    z: 28, 
-                    duration: 1.2,
-                    ease: "power2.out"
-                });
-
-                gsap.to(terrainPatch.material, {
-                    opacity: 0.95,
-                    duration: 0.8,
-                    delay: 0.3 
-                });
-            });
-
-            item.addEventListener('mouseleave', () => {
-                if (activePatch) {
-                    gsap.to(activePatch.material, { opacity: 0, duration: 0.5 });
-                    activePatch = null;
-                }
-
-                // Smoothly return to default Binghamton center
-                const targetRotationY = getShortestRotationY(earthGroup.rotation.y, binghamtonCoords.lon);
-                
-                gsap.to(earthGroup.rotation, {
-                    x: binghamtonCoords.lat * (Math.PI / 180),
-                    y: targetRotationY,
-                    duration: 1.5,
-                    ease: "power2.inOut",
-                    onComplete: () => { autoRotate = true; }
-                });
-
-                // Return to general Binghamton view
-                gsap.to(camera.position, {
-                    z: 32,
-                    duration: 1.5,
-                    ease: "power2.inOut"
-                });
+                clearTimeout(tourTimer); // Pauses the auto-tour entirely while hovering
+                focusItem(index, false);
             });
 
             item.addEventListener('click', () => {
@@ -414,7 +352,6 @@
                 document.getElementById('title-panel').style.opacity = '0';
                 labels.forEach(l => l.style.opacity = '0');
                 
-                // Zoom right to the surface before loading new page
                 gsap.to(camera.position, {
                     z: earthRadius + 1.5,
                     duration: 0.8,
@@ -424,30 +361,107 @@
             });
         });
 
-        // --- 6. Start Animation Sequence ---
-        let autoRotate = false;
+        // Panel interaction pauses and resumes the whole system
+        const uiPanel = document.getElementById('ui-panel');
+        uiPanel.addEventListener('mouseenter', () => {
+            clearTimeout(tourTimer);
+        });
 
-        // Intro Camera (Start over Europe: 48° N, 15° E)
+        uiPanel.addEventListener('mouseleave', () => {
+            resetToOverview();
+            clearTimeout(tourTimer);
+            tourTimer = setTimeout(() => {
+                tourIndex = 0;
+                focusItem(tourIndex, true);
+            }, 3000); // Waits 3 seconds before restarting tour
+        });
+
+        // --- 6. Core Camera Controllers ---
+        
+        function focusItem(index, isAutoTour = false) {
+            // Kill existing tweens to prevent rotation bugs
+            gsap.killTweensOf(earthGroup.rotation);
+            gsap.killTweensOf(camera.position);
+
+            // Hide old patches and remove active class
+            items.forEach(i => {
+                i.classList.remove('active');
+                if(i._terrainPatch) {
+                    gsap.killTweensOf(i._terrainPatch.material);
+                    gsap.to(i._terrainPatch.material, { opacity: 0, duration: 0.5 });
+                }
+            });
+
+            const item = items[index];
+            item.classList.add('active'); // Visually highlights the list item
+            
+            const targetRotationY = getShortestRotationY(earthGroup.rotation.y, item._lon);
+            const targetRotationX = item._lat * (Math.PI / 180);
+
+            // Pan the globe
+            gsap.to(earthGroup.rotation, { x: targetRotationX, y: targetRotationY, duration: 1.5, ease: "power2.out" });
+
+            // PUSH VERY CLOSE (Earth surface is 20, we are at 22.5)
+            gsap.to(camera.position, { z: 22.5, duration: 1.5, ease: "power2.out" });
+
+            if (item._terrainPatch) {
+                gsap.to(item._terrainPatch.material, { opacity: 0.95, duration: 0.8, delay: 0.3 });
+            }
+
+            if (isAutoTour) {
+                tourTimer = setTimeout(() => {
+                    tourIndex = (tourIndex + 1) % items.length;
+                    focusItem(tourIndex, true);
+                }, 4000); // Show each location for 4 seconds
+            }
+        }
+
+        function resetToOverview() {
+            gsap.killTweensOf(earthGroup.rotation);
+            gsap.killTweensOf(camera.position);
+
+            items.forEach(i => {
+                i.classList.remove('active');
+                if(i._terrainPatch) {
+                    gsap.killTweensOf(i._terrainPatch.material);
+                    gsap.to(i._terrainPatch.material, { opacity: 0, duration: 0.5 });
+                }
+            });
+
+            const targetRotationY = getShortestRotationY(earthGroup.rotation.y, binghamtonCoords.lon);
+            gsap.to(earthGroup.rotation, { x: binghamtonCoords.lat * (Math.PI / 180), y: targetRotationY, duration: 1.5, ease: "power2.inOut" });
+            
+            // Overview Zoom
+            gsap.to(camera.position, { z: 26, duration: 1.5, ease: "power2.inOut" });
+        }
+
+
+        // --- 7. Start Animation Sequence ---
+
+        // Start over Europe: 48° N, 15° E
         earthGroup.rotation.x = 48 * (Math.PI / 180); 
         earthGroup.rotation.y = -(15 + 90) * (Math.PI / 180); 
 
         const tl = gsap.timeline({
             onComplete: () => { 
-                autoRotate = true; 
                 gsap.to(document.getElementById('ui-panel'), { opacity: 1, duration: 1 });
                 gsap.to(document.getElementById('title-panel'), { opacity: 1, duration: 1 });
                 labels.forEach(l => l.style.opacity = 1);
+                
+                // Start auto tour slightly after zooming in
+                tourTimer = setTimeout(() => {
+                    focusItem(0, true);
+                }, 2000);
             }
         });
 
-        // Zoom into Binghamton (32 puts us fairly close)
+        // Zoom deeply into Binghamton overview (from 200 down to 26)
         tl.to(camera.position, {
-            z: 32,
+            z: 26,
             duration: 3.5,
             ease: "power3.inOut"
         }, "+=0.5");
 
-        // Swing to Binghamton coordinates
         tl.to(earthGroup.rotation, {
             x: binghamtonCoords.lat * (Math.PI / 180),
             y: -(binghamtonCoords.lon + 90) * (Math.PI / 180),
@@ -456,12 +470,9 @@
         }, "<");
 
 
-        // --- 7. Animation Loop ---
+        // --- 8. Animation Loop (Stripped of auto-rotate) ---
         function animate() {
             requestAnimationFrame(animate);
-            if (autoRotate) {
-                earthGroup.rotation.y += 0.0005; 
-            }
             renderer.render(scene, camera);
             labelRenderer.render(scene, camera);
         }
