@@ -103,7 +103,7 @@
             z-index: 10;
             opacity: 0;
             transition: opacity 1.5s ease-out; 
-            gap: 15px; /* Prevent overlapping on smaller screens */
+            gap: 15px; 
         }
 
         #title-container.visible { opacity: 1; }
@@ -111,7 +111,7 @@
         #building-logo {
             height: clamp(25px, 5vw, 40px);
             width: auto;
-            max-width: 25vw; /* Prevents clipping off the right edge */
+            max-width: 25vw; 
             object-fit: contain;
             mix-blend-mode: screen; 
             flex-shrink: 0;
@@ -120,7 +120,7 @@
         #building-title {
             margin: 0;
             color: #ffffff;
-            font-size: clamp(1rem, 3.5vw, 1.8rem); /* Slightly smaller base for mobile */
+            font-size: clamp(1rem, 3.5vw, 1.8rem); 
             letter-spacing: 2px;
             opacity: 0.9;
             text-shadow: 0px 4px 15px rgba(0, 0, 0, 0.8);
@@ -145,11 +145,12 @@
         #ui-panel {
             position: absolute;
             bottom: 3%; left: 3%;
-            width: clamp(260px, 90vw, 360px); /* Responsive width */
+            width: clamp(260px, 90vw, 360px); 
             padding: 20px;
             box-sizing: border-box;
             opacity: 0; 
             border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: opacity 0.5s ease;
         }
 
         #ui-panel h2 {
@@ -166,14 +167,12 @@
             list-style: none;
             padding: 0; margin: 0;
             display: flex; flex-direction: column; gap: 8px;
-            /* Mobile fixes: Scrollable list */
-            max-height: 25vh; /* Prevents taking up half the screen */
+            max-height: 25vh; 
             overflow-y: auto;
             overflow-x: hidden;
-            padding-right: 5px; /* Room for scrollbar */
+            padding-right: 5px; 
         }
 
-        /* Custom scrollbar for the menu */
         .model-list::-webkit-scrollbar { width: 4px; }
         .model-list::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 4px; }
         .model-list::-webkit-scrollbar-thumb { background: rgba(0, 255, 255, 0.4); border-radius: 4px; }
@@ -228,7 +227,6 @@
         .poi-label .title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 2px; font-weight: bold; margin-bottom: 4px; }
         .poi-label .coords { font-size: 0.65rem; color: #00ffff; font-family: monospace; letter-spacing: 1px; }
 
-        /* Media query for tighter mobile fitting */
         @media (max-width: 600px) {
             #title-container { padding: 12px 15px; }
             #ui-panel {
@@ -404,13 +402,21 @@
         let tourTimer = null;
         let tourIndex = 0;
 
+        // --- Dynamic Z Zoom Settings for Mobile vs Desktop ---
+        function getOverviewZ() {
+            return window.innerWidth < 768 ? 22.5 : 20.4;
+        }
+
+        function getFocusZ() {
+            return window.innerWidth < 768 ? 21.0 : 20.15;
+        }
+
         items.forEach((item, index) => {
             const lat = parseFloat(item.getAttribute('data-lat'));
             const lon = parseFloat(item.getAttribute('data-lon'));
             const name = item.querySelector('h3').textContent;
             const coordText = item.querySelector('.coord-display').textContent;
             
-            // Unique material for isolated hovering
             const markerMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0 });
             const marker = new THREE.Mesh(poiGeometry, markerMat);
             const pos = getCoordinates(lat, lon, layerPatches + 0.01);
@@ -454,17 +460,31 @@
                 focusItem(index, false);
             });
 
-            item.addEventListener('click', () => {
+            item.addEventListener('click', (e) => {
                 const url = item.getAttribute('data-url');
+                
+                if (!url || url === "#" || url === "") {
+                    console.warn("No valid URL found for this location.");
+                    return; 
+                }
+
+                document.body.style.pointerEvents = 'none';
+
                 document.getElementById('ui-panel').style.opacity = '0';
                 titleContainer.style.opacity = '0';
                 labels.forEach(l => l.style.opacity = '0');
                 markers.forEach(m => gsap.to(m.material, { opacity: 0, duration: 0.5 }));
                 
+                gsap.killTweensOf(earthGroup.rotation);
+                gsap.killTweensOf(camera.position);
+
                 gsap.to(camera.position, {
                     z: earthRadius + 0.05, 
                     duration: 1.0, ease: "power3.in",
-                    onComplete: () => { window.location.href = url; }
+                    onComplete: () => { 
+                        window.location.href = url; 
+                        setTimeout(() => { document.body.style.pointerEvents = 'auto'; }, 1000);
+                    }
                 });
             });
         });
@@ -475,6 +495,19 @@
             resetToOverview();
             clearTimeout(tourTimer);
             tourTimer = setTimeout(() => { tourIndex = 0; focusItem(tourIndex, true); }, 4000); 
+        });
+
+        window.addEventListener('pageshow', (event) => {
+            if (event.persisted) { 
+                document.body.style.pointerEvents = 'auto'; 
+                document.getElementById('ui-panel').style.opacity = '1';
+                titleContainer.style.opacity = '1';
+                
+                gsap.killTweensOf(camera.position);
+                camera.position.set(0, 0, getOverviewZ()); 
+                
+                resetToOverview();
+            }
         });
 
         // --- 3. Camera Interaction Functions ---
@@ -502,19 +535,19 @@
             const item = items[index];
             item.classList.add('active'); 
             
-            // For smoother rotation when navigating around the same general area
             const targetRotationY = getShortestRotationY(earthGroup.rotation.y, item._lon);
             const targetRotationX = item._lat * (Math.PI / 180);
 
             gsap.to(earthGroup.rotation, { x: targetRotationX, y: targetRotationY, duration: 2.8, ease: "power2.inOut" });
-            gsap.to(camera.position, { z: 20.15, duration: 2.8, ease: "power2.inOut" });
+            
+            // Adjust zoom dynamically based on screen width
+            gsap.to(camera.position, { z: getFocusZ(), duration: 2.8, ease: "power2.inOut" });
 
             if (item._terrainPatch) {
                 gsap.to(item._terrainPatch.material, { opacity: 1, duration: 1.0, delay: 1.0 });
             }
 
             if (isAutoTour) {
-                // Ensure the menu scrolls automatically with the auto-tour
                 const itemElement = items[index];
                 const listContainer = document.querySelector('.model-list');
                 listContainer.scrollTo({
@@ -546,7 +579,9 @@
 
             const targetRotationY = getShortestRotationY(earthGroup.rotation.y, binghamtonCoords.lon);
             gsap.to(earthGroup.rotation, { x: binghamtonCoords.lat * (Math.PI / 180), y: targetRotationY, duration: 2.8, ease: "power2.inOut" });
-            gsap.to(camera.position, { z: 20.4, duration: 2.8, ease: "power2.inOut" });
+            
+            // Adjust overview zoom dynamically
+            gsap.to(camera.position, { z: getOverviewZ(), duration: 2.8, ease: "power2.inOut" });
         }
 
 
@@ -588,7 +623,8 @@
 
                 const bingRotY = -(binghamtonCoords.lon + 90) * (Math.PI / 180);
 
-                tl.to(camera.position, { z: 20.4, duration: 3.5, ease: "power3.inOut" }, "+=0.2");
+                // Use dynamic overview zoom at the end of the boot sequence
+                tl.to(camera.position, { z: getOverviewZ(), duration: 3.5, ease: "power3.inOut" }, "+=0.2");
                 tl.to(earthGroup.rotation, {
                     x: binghamtonCoords.lat * (Math.PI / 180),
                     y: bingRotY,
@@ -620,6 +656,11 @@
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
             labelRenderer.setSize(window.innerWidth, window.innerHeight);
+            
+            // Adjust camera position immediately on resize if resting in overview
+            if (tourTimer) {
+                gsap.to(camera.position, { z: getOverviewZ(), duration: 0.5 });
+            }
         });
     </script>
 </body>
