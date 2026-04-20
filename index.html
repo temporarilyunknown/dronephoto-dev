@@ -31,6 +31,23 @@
             z-index: 10;
         }
 
+        #title-panel {
+            position: absolute;
+            top: 4%; left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 35px;
+            opacity: 0; /* Hidden for start animation */
+            text-align: center;
+        }
+
+        #title-panel h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            font-weight: 300;
+        }
+
         #ui-panel {
             position: absolute;
             bottom: 5%; left: 3%;
@@ -135,6 +152,10 @@
 </head>
 <body>
 
+    <div id="title-panel" class="glass-panel">
+        <h1>Binghamton University Drone Photogrammetry Portfolio</h1>
+    </div>
+
     <div id="ui-panel" class="glass-panel">
         <h2>Binghamton Sites</h2>
         <ul class="model-list">
@@ -176,8 +197,9 @@
         const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
         
+        // Push camera starting position way out for dramatic zoom
         const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 0, 150); // Start far away
+        camera.position.set(0, 0, 200); 
 
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -204,9 +226,8 @@
             return new THREE.Vector3(x, y, z);
         }
 
-        // NEW HELPER: Prevents globe from spinning wildly backwards when targeting a location
+        // Prevents globe from spinning wildly backwards when targeting a location
         function getShortestRotationY(currentY, targetLon) {
-            // Correct math to center a longitude perfectly on screen
             const targetYBase = -(targetLon + 90) * (Math.PI / 180); 
             let diff = targetYBase - (currentY % (Math.PI * 2));
             if (diff > Math.PI) diff -= Math.PI * 2;
@@ -331,14 +352,15 @@
             terrainPatch.lookAt(patchPos.clone().multiplyScalar(2));
             earthGroup.add(terrainPatch);
 
-            // --- 5. Hover Interactions (Drone Angle) ---
+            // --- 5. Hover Interactions ---
             item.addEventListener('mouseenter', () => {
                 autoRotate = false;
                 activePatch = terrainPatch;
 
                 // Grab precise path to marker without un-spinning
                 const targetRotationY = getShortestRotationY(earthGroup.rotation.y, lon);
-                const targetRotationX = (lat + 12) * (Math.PI / 180);
+                // Removed the +12 offset so the target centers perfectly
+                const targetRotationX = lat * (Math.PI / 180);
 
                 gsap.to(earthGroup.rotation, {
                     x: targetRotationX,
@@ -347,8 +369,9 @@
                     ease: "power2.out"
                 });
 
+                // Zoom in tighter on hover
                 gsap.to(camera.position, {
-                    z: 32, 
+                    z: 28, 
                     duration: 1.2,
                     ease: "power2.out"
                 });
@@ -377,8 +400,9 @@
                     onComplete: () => { autoRotate = true; }
                 });
 
+                // Return to general Binghamton view
                 gsap.to(camera.position, {
-                    z: 45,
+                    z: 32,
                     duration: 1.5,
                     ease: "power2.inOut"
                 });
@@ -387,8 +411,10 @@
             item.addEventListener('click', () => {
                 const url = item.getAttribute('data-url');
                 document.getElementById('ui-panel').style.opacity = '0';
+                document.getElementById('title-panel').style.opacity = '0';
                 labels.forEach(l => l.style.opacity = '0');
                 
+                // Zoom right to the surface before loading new page
                 gsap.to(camera.position, {
                     z: earthRadius + 1.5,
                     duration: 0.8,
@@ -409,20 +435,23 @@
             onComplete: () => { 
                 autoRotate = true; 
                 gsap.to(document.getElementById('ui-panel'), { opacity: 1, duration: 1 });
+                gsap.to(document.getElementById('title-panel'), { opacity: 1, duration: 1 });
                 labels.forEach(l => l.style.opacity = 1);
             }
         });
 
+        // Zoom into Binghamton (32 puts us fairly close)
         tl.to(camera.position, {
-            z: 45,
-            duration: 3,
+            z: 32,
+            duration: 3.5,
             ease: "power3.inOut"
         }, "+=0.5");
 
+        // Swing to Binghamton coordinates
         tl.to(earthGroup.rotation, {
             x: binghamtonCoords.lat * (Math.PI / 180),
             y: -(binghamtonCoords.lon + 90) * (Math.PI / 180),
-            duration: 3,
+            duration: 3.5,
             ease: "power3.inOut"
         }, "<");
 
