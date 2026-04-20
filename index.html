@@ -103,26 +103,32 @@
             z-index: 10;
             opacity: 0;
             transition: opacity 1.5s ease-out; 
+            gap: 15px; /* Prevent overlapping on smaller screens */
         }
 
         #title-container.visible { opacity: 1; }
 
         #building-logo {
-            height: clamp(35px, 5vw, 50px);
+            height: clamp(25px, 5vw, 40px);
             width: auto;
+            max-width: 25vw; /* Prevents clipping off the right edge */
+            object-fit: contain;
             mix-blend-mode: screen; 
+            flex-shrink: 0;
         }
 
         #building-title {
             margin: 0;
             color: #ffffff;
-            font-size: clamp(1.2rem, 4vw, 1.8rem);
+            font-size: clamp(1rem, 3.5vw, 1.8rem); /* Slightly smaller base for mobile */
             letter-spacing: 2px;
             opacity: 0.9;
             text-shadow: 0px 4px 15px rgba(0, 0, 0, 0.8);
             white-space: nowrap; 
             text-transform: uppercase;
             font-weight: 300;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         /* --- Globe UI Panel --- */
@@ -138,30 +144,42 @@
 
         #ui-panel {
             position: absolute;
-            bottom: 5%; left: 3%;
-            width: 360px; padding: 25px;
+            bottom: 3%; left: 3%;
+            width: clamp(260px, 90vw, 360px); /* Responsive width */
+            padding: 20px;
+            box-sizing: border-box;
             opacity: 0; 
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         #ui-panel h2 {
             margin: 0 0 15px 0;
-            font-size: 1.3rem;
+            font-size: 1.2rem;
             letter-spacing: 3px;
             text-transform: uppercase;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            padding-bottom: 15px;
+            padding-bottom: 12px;
             font-weight: 300;
         }
 
         .model-list {
             list-style: none;
             padding: 0; margin: 0;
-            display: flex; flex-direction: column; gap: 10px;
+            display: flex; flex-direction: column; gap: 8px;
+            /* Mobile fixes: Scrollable list */
+            max-height: 25vh; /* Prevents taking up half the screen */
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 5px; /* Room for scrollbar */
         }
 
+        /* Custom scrollbar for the menu */
+        .model-list::-webkit-scrollbar { width: 4px; }
+        .model-list::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 4px; }
+        .model-list::-webkit-scrollbar-thumb { background: rgba(0, 255, 255, 0.4); border-radius: 4px; }
+
         .model-item {
-            padding: 12px 15px;
+            padding: 10px 12px;
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid transparent;
             border-radius: 8px;
@@ -173,17 +191,17 @@
         .model-item.active, .model-item:hover {
             background: rgba(255, 255, 255, 0.12);
             border-color: rgba(0, 255, 255, 0.4);
-            transform: translateX(10px);
+            transform: translateX(5px);
         }
 
-        .model-item h3 { margin: 0 0 3px 0; font-size: 1rem; font-weight: 400; }
+        .model-item h3 { margin: 0 0 3px 0; font-size: 0.95rem; font-weight: 400; }
         .model-item .coord-display {
-            margin: 0; font-size: 0.7rem; color: #00ffff;
+            margin: 0; font-size: 0.65rem; color: #00ffff;
             letter-spacing: 1px; font-family: monospace; opacity: 0.8;
         }
 
         .model-item::before {
-            content: ''; position: absolute; right: 15px; top: 50%;
+            content: ''; position: absolute; right: 10px; top: 50%;
             transform: translateY(-50%); width: 6px; height: 6px;
             background-color: #00ffff; border-radius: 50%; opacity: 0.2;
             transition: all 0.4s ease;
@@ -209,6 +227,19 @@
 
         .poi-label .title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 2px; font-weight: bold; margin-bottom: 4px; }
         .poi-label .coords { font-size: 0.65rem; color: #00ffff; font-family: monospace; letter-spacing: 1px; }
+
+        /* Media query for tighter mobile fitting */
+        @media (max-width: 600px) {
+            #title-container { padding: 12px 15px; }
+            #ui-panel {
+                bottom: 15px; left: 50%;
+                transform: translateX(-50%);
+                width: 92%; padding: 15px;
+            }
+        }
+        @media (min-height: 800px) {
+            .model-list { max-height: 40vh; }
+        }
     </style>
 </head>
 <body>
@@ -226,6 +257,9 @@
     <div id="ui-panel" class="glass-panel">
         <h2>University Sites</h2>
         <ul class="model-list">
+            <li class="model-item" data-id="gannett" data-lat="42.0987" data-lon="-75.9125" data-map="map-gannett.png" data-url="viewer.html?model=gannett">
+                <h3>Gannett Building</h3><p class="coord-display">42.0987° N, -75.9125° W</p>
+            </li>
             <li class="model-item" data-id="main" data-lat="42.0885" data-lon="-75.9680" data-map="map-main.png" data-url="viewer.html?model=main">
                 <h3>BU Main Campus</h3><p class="coord-display">42.0885° N, -75.9680° W</p>
             </li>
@@ -376,7 +410,7 @@
             const name = item.querySelector('h3').textContent;
             const coordText = item.querySelector('.coord-display').textContent;
             
-            // Create a unique material for each dot so they can fade independently
+            // Unique material for isolated hovering
             const markerMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0 });
             const marker = new THREE.Mesh(poiGeometry, markerMat);
             const pos = getCoordinates(lat, lon, layerPatches + 0.01);
@@ -449,7 +483,6 @@
             gsap.killTweensOf(earthGroup.rotation);
             gsap.killTweensOf(camera.position);
 
-            // Isolate visibility to ONLY the active item
             markers.forEach((m, i) => {
                 gsap.killTweensOf(m.material);
                 gsap.to(m.material, { opacity: i === index ? 1 : 0, duration: 0.5 });
@@ -469,6 +502,7 @@
             const item = items[index];
             item.classList.add('active'); 
             
+            // For smoother rotation when navigating around the same general area
             const targetRotationY = getShortestRotationY(earthGroup.rotation.y, item._lon);
             const targetRotationX = item._lat * (Math.PI / 180);
 
@@ -480,6 +514,14 @@
             }
 
             if (isAutoTour) {
+                // Ensure the menu scrolls automatically with the auto-tour
+                const itemElement = items[index];
+                const listContainer = document.querySelector('.model-list');
+                listContainer.scrollTo({
+                    top: itemElement.offsetTop - listContainer.offsetTop - 10,
+                    behavior: 'smooth'
+                });
+
                 tourTimer = setTimeout(() => {
                     tourIndex = (tourIndex + 1) % items.length;
                     focusItem(tourIndex, true);
@@ -491,7 +533,6 @@
             gsap.killTweensOf(earthGroup.rotation);
             gsap.killTweensOf(camera.position);
 
-            // Hide all dots and labels in overview
             markers.forEach(m => {
                 gsap.killTweensOf(m.material);
                 gsap.to(m.material, { opacity: 0, duration: 0.5 });
@@ -543,7 +584,6 @@
                     duration: 2.5, ease: "power2.inOut" 
                 }, "<");
 
-                // Shortened US View pause from 1.2s to 1.0s
                 tl.to({}, { duration: 1.0 });
 
                 const bingRotY = -(binghamtonCoords.lon + 90) * (Math.PI / 180);
