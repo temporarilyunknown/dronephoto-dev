@@ -25,7 +25,6 @@
             background: rgba(20, 20, 20, 0.4);
             backdrop-filter: blur(15px);
             -webkit-backdrop-filter: blur(15px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 12px;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
             z-index: 10;
@@ -36,10 +35,10 @@
             top: 4%; left: 50%;
             transform: translateX(-50%);
             padding: 15px 35px;
-            opacity: 0; /* Hidden for start animation */
+            opacity: 0; 
             text-align: center;
-            border: none !important; /* Removes the light blue border */
-            background: rgba(20, 20, 20, 0.6); /* Slightly darker to compensate for no border */
+            border: none !important; 
+            background: rgba(20, 20, 20, 0.6); 
         }
 
         #title-panel h1 {
@@ -54,7 +53,8 @@
             position: absolute;
             bottom: 5%; left: 3%;
             width: 340px; padding: 25px;
-            opacity: 0; /* Hidden for start animation */
+            opacity: 0; 
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         #ui-panel h2 {
@@ -83,7 +83,6 @@
             position: relative;
         }
 
-        /* Active State used by the Auto-Tour and Hover */
         .model-item.active, .model-item:hover {
             background: rgba(255, 255, 255, 0.12);
             border-color: rgba(0, 255, 255, 0.4);
@@ -132,7 +131,7 @@
             border: 1px solid rgba(255, 255, 255, 0.15);
             white-space: nowrap;
             pointer-events: none;
-            opacity: 0; /* Hidden for start animation */
+            opacity: 0; 
             margin-top: 30px;
             transition: opacity 0.5s ease;
             display: flex;
@@ -203,7 +202,6 @@
         const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
         
-        // Start camera way out
         const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.set(0, 0, 200); 
 
@@ -232,7 +230,6 @@
             return new THREE.Vector3(x, y, z);
         }
 
-        // Prevents unwinding on rotations
         function getShortestRotationY(currentY, targetLon) {
             const targetYBase = -(targetLon + 90) * (Math.PI / 180); 
             let diff = targetYBase - (currentY % (Math.PI * 2));
@@ -243,45 +240,80 @@
 
         const earthRadius = 20;
 
-        // --- 3. Create Core Sphere & Vector Continents ---
+        // Tightened Z-layers so everything hugs the globe closely
+        const layerWorld = earthRadius + 0.01;
+        const layerStates = earthRadius + 0.02;
+        const layerCounties = earthRadius + 0.03;
+        const layerPatches = earthRadius + 0.04;
+
+        // --- 3. Create Core Sphere & Maps ---
         const innerGeom = new THREE.SphereGeometry(earthRadius, 64, 64);
-        const innerMat = new THREE.MeshBasicMaterial({ 
-            color: 0x111111, 
-            transparent: true,
-            opacity: 0.95
-        });
+        const innerMat = new THREE.MeshBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.95 });
         const innerEarth = new THREE.Mesh(innerGeom, innerMat);
         earthGroup.add(innerEarth);
 
-        fetch('https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json')
-            .then(response => response.json())
-            .then(data => {
-                const lineMaterial = new THREE.LineBasicMaterial({ color: 0x336688, transparent: true, opacity: 0.6 });
-                data.features.forEach(feature => {
-                    const geometry = feature.geometry;
-                    if (geometry.type === 'Polygon') drawPolygon(geometry.coordinates, lineMaterial);
-                    else if (geometry.type === 'MultiPolygon') geometry.coordinates.forEach(polygon => drawPolygon(polygon, lineMaterial));
-                });
-            });
-
-        function drawPolygon(coordinates, material) {
+        function drawPolygon(coordinates, material, radius) {
             coordinates.forEach(ring => {
                 const points = [];
-                ring.forEach(coord => { points.push(getCoordinates(coord[1], coord[0], earthRadius + 0.05)); });
+                ring.forEach(coord => { points.push(getCoordinates(coord[1], coord[0], radius)); });
                 const geometry = new THREE.BufferGeometry().setFromPoints(points);
                 const line = new THREE.Line(geometry, material);
                 earthGroup.add(line);
             });
         }
 
+        // 1. Fetch World Countries
+        fetch('https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json')
+            .then(response => response.json())
+            .then(data => {
+                const countryMat = new THREE.LineBasicMaterial({ color: 0x336688, transparent: true, opacity: 0.4 });
+                data.features.forEach(feature => {
+                    const geometry = feature.geometry;
+                    if (geometry.type === 'Polygon') drawPolygon(geometry.coordinates, countryMat, layerWorld);
+                    else if (geometry.type === 'MultiPolygon') geometry.coordinates.forEach(polygon => drawPolygon(polygon, countryMat, layerWorld));
+                });
+            });
+
+        // 2. Fetch US States
+        fetch('https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json')
+            .then(response => response.json())
+            .then(data => {
+                const stateMat = new THREE.LineBasicMaterial({ color: 0x44aaaa, transparent: true, opacity: 0.6 });
+                data.features.forEach(feature => {
+                    const geometry = feature.geometry;
+                    if (geometry.type === 'Polygon') drawPolygon(geometry.coordinates, stateMat, layerStates);
+                    else if (geometry.type === 'MultiPolygon') geometry.coordinates.forEach(polygon => drawPolygon(polygon, stateMat, layerStates));
+                });
+            });
+
+        // 3. Fetch NY Counties & Highlight Broome
+        fetch('https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/new-york-counties.geojson')
+            .then(response => response.json())
+            .then(data => {
+                const nyMat = new THREE.LineBasicMaterial({ color: 0x555555, transparent: true, opacity: 0.5 });
+                const broomeMat = new THREE.LineBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 1.0 }); // Bright highlight for Broome
+                
+                data.features.forEach(feature => {
+                    const geometry = feature.geometry;
+                    // Check if this is Broome County
+                    const isBroome = feature.properties.name === "Broome";
+                    const matToUse = isBroome ? broomeMat : nyMat;
+
+                    if (geometry.type === 'Polygon') drawPolygon(geometry.coordinates, matToUse, layerCounties);
+                    else if (geometry.type === 'MultiPolygon') geometry.coordinates.forEach(polygon => drawPolygon(polygon, matToUse, layerCounties));
+                });
+            });
+
         const wireGeom = new THREE.IcosahedronGeometry(earthRadius + 0.2, 4);
         const wireMat = new THREE.MeshBasicMaterial({ color: 0x444444, wireframe: true, transparent: true, opacity: 0.1 });
         const wireframeCube = new THREE.Mesh(wireGeom, wireMat);
         earthGroup.add(wireframeCube);
 
-        // --- 4. Setup Markers & Variables ---
+        // --- 4. Setup Markers & Tiny Terrain Patches ---
         const binghamtonCoords = { lat: 42.0987, lon: -75.9125 };
-        const poiGeometry = new THREE.SphereGeometry(0.15, 16, 16);
+        
+        // Shrunk marker size
+        const poiGeometry = new THREE.SphereGeometry(0.04, 16, 16);
         const poiMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffff });
         const textureLoader = new THREE.TextureLoader();
         
@@ -298,7 +330,7 @@
             const mapSrc = item.getAttribute('data-map');
             
             const marker = new THREE.Mesh(poiGeometry, poiMaterial);
-            const pos = getCoordinates(lat, lon, earthRadius + 0.3);
+            const pos = getCoordinates(lat, lon, layerPatches + 0.01);
             marker.position.copy(pos);
             earthGroup.add(marker);
 
@@ -310,16 +342,16 @@
             marker.add(label);
             labels.push(labelDiv);
 
-            const patchRadius = 3; 
+            // DRASTICALLY REDUCED PATCH RADIUS (From 3 down to 0.15)
+            const patchRadius = 0.15; 
             const patchGeom = new THREE.CircleGeometry(patchRadius, 64);
             const posAttribute = patchGeom.attributes.position;
             const v = new THREE.Vector3();
-            const curveRadius = earthRadius + 0.4; 
             
             for (let i = 0; i < posAttribute.count; i++) {
                 v.fromBufferAttribute(posAttribute, i);
                 const dist = Math.sqrt(v.x * v.x + v.y * v.y);
-                const zOffset = Math.sqrt(Math.pow(curveRadius, 2) - dist * dist) - curveRadius;
+                const zOffset = Math.sqrt(Math.pow(layerPatches, 2) - dist * dist) - layerPatches;
                 posAttribute.setZ(i, zOffset);
             }
             patchGeom.computeVertexNormals(); 
@@ -330,19 +362,18 @@
             });
             const terrainPatch = new THREE.Mesh(patchGeom, patchMat);
             
-            const patchPos = getCoordinates(lat, lon, curveRadius);
+            const patchPos = getCoordinates(lat, lon, layerPatches);
             terrainPatch.position.copy(patchPos);
             terrainPatch.lookAt(patchPos.clone().multiplyScalar(2));
             earthGroup.add(terrainPatch);
 
-            // Store references directly on the DOM element for the Tour function to use
             item._lat = lat;
             item._lon = lon;
             item._terrainPatch = terrainPatch;
 
             // --- 5. Interactive Event Listeners ---
             item.addEventListener('mouseenter', () => {
-                clearTimeout(tourTimer); // Pauses the auto-tour entirely while hovering
+                clearTimeout(tourTimer); 
                 focusItem(index, false);
             });
 
@@ -353,7 +384,7 @@
                 labels.forEach(l => l.style.opacity = '0');
                 
                 gsap.to(camera.position, {
-                    z: earthRadius + 1.5,
+                    z: earthRadius + 0.1, // Dives straight into the map
                     duration: 0.8,
                     ease: "power3.in",
                     onComplete: () => { window.location.href = url; }
@@ -361,29 +392,23 @@
             });
         });
 
-        // Panel interaction pauses and resumes the whole system
         const uiPanel = document.getElementById('ui-panel');
-        uiPanel.addEventListener('mouseenter', () => {
-            clearTimeout(tourTimer);
-        });
-
+        uiPanel.addEventListener('mouseenter', () => { clearTimeout(tourTimer); });
         uiPanel.addEventListener('mouseleave', () => {
             resetToOverview();
             clearTimeout(tourTimer);
             tourTimer = setTimeout(() => {
                 tourIndex = 0;
                 focusItem(tourIndex, true);
-            }, 3000); // Waits 3 seconds before restarting tour
+            }, 3000); 
         });
 
         // --- 6. Core Camera Controllers ---
         
         function focusItem(index, isAutoTour = false) {
-            // Kill existing tweens to prevent rotation bugs
             gsap.killTweensOf(earthGroup.rotation);
             gsap.killTweensOf(camera.position);
 
-            // Hide old patches and remove active class
             items.forEach(i => {
                 i.classList.remove('active');
                 if(i._terrainPatch) {
@@ -393,26 +418,25 @@
             });
 
             const item = items[index];
-            item.classList.add('active'); // Visually highlights the list item
+            item.classList.add('active'); 
             
             const targetRotationY = getShortestRotationY(earthGroup.rotation.y, item._lon);
             const targetRotationX = item._lat * (Math.PI / 180);
 
-            // Pan the globe
             gsap.to(earthGroup.rotation, { x: targetRotationX, y: targetRotationY, duration: 1.5, ease: "power2.out" });
 
-            // PUSH VERY CLOSE (Earth surface is 20, we are at 22.5)
-            gsap.to(camera.position, { z: 22.5, duration: 1.5, ease: "power2.out" });
+            // CAMERA ZOOMS IN EXTREMELY CLOSE NOW (Because patches are very small)
+            gsap.to(camera.position, { z: 20.35, duration: 1.5, ease: "power2.out" });
 
             if (item._terrainPatch) {
-                gsap.to(item._terrainPatch.material, { opacity: 0.95, duration: 0.8, delay: 0.3 });
+                gsap.to(item._terrainPatch.material, { opacity: 1, duration: 0.8, delay: 0.3 });
             }
 
             if (isAutoTour) {
                 tourTimer = setTimeout(() => {
                     tourIndex = (tourIndex + 1) % items.length;
                     focusItem(tourIndex, true);
-                }, 4000); // Show each location for 4 seconds
+                }, 4000); 
             }
         }
 
@@ -431,14 +455,12 @@
             const targetRotationY = getShortestRotationY(earthGroup.rotation.y, binghamtonCoords.lon);
             gsap.to(earthGroup.rotation, { x: binghamtonCoords.lat * (Math.PI / 180), y: targetRotationY, duration: 1.5, ease: "power2.inOut" });
             
-            // Overview Zoom
-            gsap.to(camera.position, { z: 26, duration: 1.5, ease: "power2.inOut" });
+            // New overview distance sees the states/county context clearly
+            gsap.to(camera.position, { z: 22, duration: 1.5, ease: "power2.inOut" });
         }
 
 
         // --- 7. Start Animation Sequence ---
-
-        // Start over Europe: 48° N, 15° E
         earthGroup.rotation.x = 48 * (Math.PI / 180); 
         earthGroup.rotation.y = -(15 + 90) * (Math.PI / 180); 
 
@@ -448,16 +470,13 @@
                 gsap.to(document.getElementById('title-panel'), { opacity: 1, duration: 1 });
                 labels.forEach(l => l.style.opacity = 1);
                 
-                // Start auto tour slightly after zooming in
-                tourTimer = setTimeout(() => {
-                    focusItem(0, true);
-                }, 2000);
+                tourTimer = setTimeout(() => { focusItem(0, true); }, 2000);
             }
         });
 
-        // Zoom deeply into Binghamton overview (from 200 down to 26)
+        // Zoom from 200 down to 22 (See Binghamton Context)
         tl.to(camera.position, {
-            z: 26,
+            z: 22,
             duration: 3.5,
             ease: "power3.inOut"
         }, "+=0.5");
@@ -470,7 +489,7 @@
         }, "<");
 
 
-        // --- 8. Animation Loop (Stripped of auto-rotate) ---
+        // --- 8. Animation Loop ---
         function animate() {
             requestAnimationFrame(animate);
             renderer.render(scene, camera);
