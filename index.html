@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Binghamton University Drone Photogrammetry</title>
+    <title>Binghamton Development Atlas</title>
     <style>
         body {
             margin: 0; padding: 0;
@@ -34,7 +34,8 @@
         #ui-panel {
             position: absolute;
             bottom: 5%; left: 3%;
-            width: 320px; padding: 25px;
+            width: 340px; padding: 25px;
+            opacity: 0; /* Hidden for start animation */
         }
 
         #ui-panel h2 {
@@ -74,6 +75,15 @@
             font-size: 1rem; font-weight: 400;
         }
 
+        .model-item .coord-display {
+            margin: 0;
+            font-size: 0.7rem;
+            color: #00ffff;
+            letter-spacing: 1px;
+            font-family: monospace;
+            opacity: 0.8;
+        }
+
         .model-item::before {
             content: '';
             position: absolute;
@@ -89,21 +99,37 @@
 
         .model-item:hover::before { opacity: 1; }
 
-        /* Project Titles in 3D Space */
+        /* Project Titles & Coordinates in 3D Space */
         .poi-label {
             color: #fff;
+            background: rgba(20, 20, 20, 0.6);
+            backdrop-filter: blur(5px);
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0; /* Hidden for start animation */
+            margin-top: 30px;
+            transition: opacity 0.5s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .poi-label .title {
             font-size: 0.8rem;
             text-transform: uppercase;
             letter-spacing: 2px;
-            background: rgba(20, 20, 20, 0.6);
-            backdrop-filter: blur(5px);
-            padding: 5px 10px;
-            border-radius: 4px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            white-space: nowrap;
-            pointer-events: none;
-            opacity: 0.8;
-            margin-top: 20px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .poi-label .coords {
+            font-size: 0.65rem;
+            color: #00ffff;
+            font-family: monospace;
+            letter-spacing: 1px;
         }
     </style>
 </head>
@@ -118,6 +144,7 @@
                 data-map="map-gannett.png" 
                 data-url="viewer.html?model=gannett">
                 <h3>Gannett Building</h3>
+                <p class="coord-display">42.0987° N, 75.9125° W</p>
             </li>
             <li class="model-item" 
                 data-id="alpha" 
@@ -125,6 +152,7 @@
                 data-map="map-alpha.png" 
                 data-url="viewer.html?model=alpha">
                 <h3>Innovation Center</h3>
+                <p class="coord-display">42.1030° N, 75.9180° W</p>
             </li>
             <li class="model-item" 
                 data-id="beta" 
@@ -132,6 +160,7 @@
                 data-map="map-beta.png" 
                 data-url="viewer.html?model=beta">
                 <h3>Riverside Complex</h3>
+                <p class="coord-display">42.0950° N, 75.9050° W</p>
             </li>
         </ul>
     </div>
@@ -148,7 +177,7 @@
         const scene = new THREE.Scene();
         
         const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 0, 70); // Starts zoomed out
+        camera.position.set(0, 0, 150); // Start far away
 
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -165,27 +194,8 @@
         const earthGroup = new THREE.Group();
         scene.add(earthGroup);
 
-        // --- 2. Create Wireframe Globe ---
-        const earthRadius = 20;
-
-        // Dark inner core
-        const innerGeom = new THREE.SphereGeometry(earthRadius, 64, 64);
-        const innerMat = new THREE.MeshBasicMaterial({ color: 0x0a0a0a });
-        const innerEarth = new THREE.Mesh(innerGeom, innerMat);
-        earthGroup.add(innerEarth);
-
-        // Wireframe geometric shell
-        const wireGeom = new THREE.IcosahedronGeometry(earthRadius + 0.2, 4);
-        const wireMat = new THREE.MeshBasicMaterial({ 
-            color: 0x444444, 
-            wireframe: true, 
-            transparent: true, 
-            opacity: 0.15 
-        });
-        const wireframeCube = new THREE.Mesh(wireGeom, wireMat);
-        earthGroup.add(wireframeCube);
-
-        // --- 3. Math Helper (Lat/Lon to 3D) ---
+        // --- 2. Math Helper (Lat/Lon to 3D Vector) ---
+        // We define this BEFORE the globe so the GeoJSON parser can use it
         function getCoordinates(lat, lon, radius) {
             const phi = (90 - lat) * (Math.PI / 180);
             const theta = (lon + 180) * (Math.PI / 180);
@@ -195,21 +205,82 @@
             return new THREE.Vector3(x, y, z);
         }
 
-        // Binghamton Coordinates (for default framing)
-        const binghamtonCoords = { lat: 42.0987, lon: -75.9125 };
+        const earthRadius = 20;
 
-        // --- 4. Setup Markers & Terrain Patches ---
-        const textureLoader = new THREE.TextureLoader();
+        // --- 3. Create Core Sphere & Vector Continents (NO IMAGES) ---
+        // Dark inner core
+        const innerGeom = new THREE.SphereGeometry(earthRadius, 64, 64);
+        const innerMat = new THREE.MeshBasicMaterial({ 
+            color: 0x111111, // Dark base
+            transparent: true,
+            opacity: 0.95
+        });
+        const innerEarth = new THREE.Mesh(innerGeom, innerMat);
+        earthGroup.add(innerEarth);
+
+        // Fetch and draw accurate GeoJSON world map lines
+        fetch('https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json')
+            .then(response => response.json())
+            .then(data => {
+                // Vector line material (Glowing blue/grey)
+                const lineMaterial = new THREE.LineBasicMaterial({ 
+                    color: 0x336688, 
+                    transparent: true, 
+                    opacity: 0.6 
+                });
+
+                data.features.forEach(feature => {
+                    const geometry = feature.geometry;
+                    if (geometry.type === 'Polygon') {
+                        drawPolygon(geometry.coordinates, lineMaterial);
+                    } else if (geometry.type === 'MultiPolygon') {
+                        geometry.coordinates.forEach(polygon => drawPolygon(polygon, lineMaterial));
+                    }
+                });
+            });
+
+        function drawPolygon(coordinates, material) {
+            coordinates.forEach(ring => {
+                const points = [];
+                ring.forEach(coord => {
+                    // GeoJSON coordinates are formatted as [longitude, latitude]
+                    const lon = coord[0];
+                    const lat = coord[1];
+                    // Plot lines slightly above the core sphere (Radius + 0.05) to prevent clipping
+                    points.push(getCoordinates(lat, lon, earthRadius + 0.05)); 
+                });
+                const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                const line = new THREE.Line(geometry, material);
+                earthGroup.add(line);
+            });
+        }
+
+        // Geometric outer wireframe shell
+        const wireGeom = new THREE.IcosahedronGeometry(earthRadius + 0.2, 4);
+        const wireMat = new THREE.MeshBasicMaterial({ 
+            color: 0x444444, 
+            wireframe: true, 
+            transparent: true, 
+            opacity: 0.1 
+        });
+        const wireframeCube = new THREE.Mesh(wireGeom, wireMat);
+        earthGroup.add(wireframeCube);
+
+        // --- 4. Setup Markers & Labels ---
+        const binghamtonCoords = { lat: 42.0987, lon: -75.9125 };
         const poiGeometry = new THREE.SphereGeometry(0.15, 16, 16);
         const poiMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+        const textureLoader = new THREE.TextureLoader();
 
         const items = document.querySelectorAll('.model-item');
-        let activePatch = null; // Keeps track of currently visible terrain patch
+        let activePatch = null; 
+        const labels = [];
 
         items.forEach(item => {
             const lat = parseFloat(item.getAttribute('data-lat'));
             const lon = parseFloat(item.getAttribute('data-lon'));
             const name = item.querySelector('h3').textContent;
+            const coordText = item.querySelector('.coord-display').textContent;
             const mapSrc = item.getAttribute('data-map');
             
             // A. Create Cyan Marker
@@ -218,45 +289,56 @@
             marker.position.copy(pos);
             earthGroup.add(marker);
 
-            // B. Create HTML Label
+            // B. Create HTML Label with Title and Coordinates
             const labelDiv = document.createElement('div');
             labelDiv.className = 'poi-label';
-            labelDiv.textContent = name;
+            labelDiv.innerHTML = `
+                <span class="title">${name}</span>
+                <span class="coords">${coordText}</span>
+            `;
             const label = new THREE.CSS2DObject(labelDiv);
             label.position.set(0, 0, 0);
             marker.add(label);
+            labels.push(labelDiv);
 
-            // C. Create the Terrain Overlay Patch (Hidden initially)
-            // A circular patch that hugs the globe
-            const patchGeom = new THREE.CircleGeometry(3, 64); // 3 is the radius size of the terrain map
+            // C. Create the CURVED Terrain Overlay Patch
+            const patchRadius = 3; 
+            const patchGeom = new THREE.CircleGeometry(patchRadius, 64);
+            const posAttribute = patchGeom.attributes.position;
+            const v = new THREE.Vector3();
+            const curveRadius = earthRadius + 0.4; // Sits above vectors
+            
+            for (let i = 0; i < posAttribute.count; i++) {
+                v.fromBufferAttribute(posAttribute, i);
+                const dist = Math.sqrt(v.x * v.x + v.y * v.y);
+                const zOffset = Math.sqrt(Math.pow(curveRadius, 2) - dist * dist) - curveRadius;
+                posAttribute.setZ(i, zOffset);
+            }
+            patchGeom.computeVertexNormals(); 
+
             const patchTexture = textureLoader.load(mapSrc);
             const patchMat = new THREE.MeshBasicMaterial({
                 map: patchTexture,
                 transparent: true,
-                opacity: 0, // Invisible until hover
-                depthWrite: false, // Prevents z-fighting glitches
+                opacity: 0, 
+                depthWrite: false, 
                 side: THREE.DoubleSide
             });
             const terrainPatch = new THREE.Mesh(patchGeom, patchMat);
             
-            // Position the patch slightly above the wireframe to prevent clipping
-            const patchPos = getCoordinates(lat, lon, earthRadius + 0.4);
+            const patchPos = getCoordinates(lat, lon, curveRadius);
             terrainPatch.position.copy(patchPos);
-            
-            // Orient the patch to face perfectly outwards from the center of the earth
             terrainPatch.lookAt(patchPos.clone().multiplyScalar(2));
             earthGroup.add(terrainPatch);
 
-            // --- 5. Hover Interactions ---
+            // --- 5. Hover Interactions (Drone Angle) ---
             item.addEventListener('mouseenter', () => {
                 autoRotate = false;
                 activePatch = terrainPatch;
 
-                // Calculate rotation to center the marker
                 const targetRotationY = -((lon - 90) * (Math.PI / 180));
-                const targetRotationX = lat * (Math.PI / 180);
+                const targetRotationX = (lat + 12) * (Math.PI / 180);
 
-                // 1. Rotate Globe
                 gsap.to(earthGroup.rotation, {
                     x: targetRotationX,
                     y: targetRotationY,
@@ -264,32 +346,25 @@
                     ease: "power2.out"
                 });
 
-                // 2. Zoom Camera Closer
                 gsap.to(camera.position, {
-                    z: 32, // Zoom in
+                    z: 32, 
                     duration: 1.2,
                     ease: "power2.out"
                 });
 
-                // 3. Fade in the localized terrain patch
                 gsap.to(terrainPatch.material, {
-                    opacity: 0.9,
+                    opacity: 0.95,
                     duration: 0.8,
-                    delay: 0.3 // slight delay so it fades in while rotating
+                    delay: 0.3 
                 });
             });
 
             item.addEventListener('mouseleave', () => {
-                // Fade out the terrain patch
                 if (activePatch) {
-                    gsap.to(activePatch.material, {
-                        opacity: 0,
-                        duration: 0.5
-                    });
+                    gsap.to(activePatch.material, { opacity: 0, duration: 0.5 });
                     activePatch = null;
                 }
 
-                // Restore idle Binghamton view
                 gsap.to(earthGroup.rotation, {
                     x: binghamtonCoords.lat * (Math.PI / 180),
                     y: -((binghamtonCoords.lon - 90) * (Math.PI / 180)),
@@ -299,7 +374,7 @@
                 });
 
                 gsap.to(camera.position, {
-                    z: 45, // Pull back out slightly
+                    z: 45,
                     duration: 1.5,
                     ease: "power2.inOut"
                 });
@@ -308,8 +383,8 @@
             item.addEventListener('click', () => {
                 const url = item.getAttribute('data-url');
                 document.getElementById('ui-panel').style.opacity = '0';
+                labels.forEach(l => l.style.opacity = '0');
                 
-                // Rapid zoom into the terrain map before redirecting
                 gsap.to(camera.position, {
                     z: earthRadius + 1.5,
                     duration: 0.8,
@@ -319,24 +394,39 @@
             });
         });
 
-        // --- 6. Initial Positioning & Animation ---
-        let autoRotate = true;
+        // --- 6. Start Animation Sequence ---
+        let autoRotate = false;
 
-        // Start facing Binghamton immediately
-        earthGroup.rotation.x = binghamtonCoords.lat * (Math.PI / 180);
-        earthGroup.rotation.y = -((binghamtonCoords.lon - 90) * (Math.PI / 180));
+        earthGroup.rotation.y = Math.PI; 
+        earthGroup.rotation.x = 0;
 
-        // Intro Zoom-in
-        gsap.to(camera.position, {
-            z: 45,
-            duration: 2.5,
-            ease: "power2.out"
+        const tl = gsap.timeline({
+            onComplete: () => { 
+                autoRotate = true; 
+                gsap.to(document.getElementById('ui-panel'), { opacity: 1, duration: 1 });
+                labels.forEach(l => l.style.opacity = 1);
+            }
         });
 
+        tl.to(camera.position, {
+            z: 45,
+            duration: 3,
+            ease: "power3.inOut"
+        }, "+=0.5");
+
+        tl.to(earthGroup.rotation, {
+            x: binghamtonCoords.lat * (Math.PI / 180),
+            y: -((binghamtonCoords.lon - 90) * (Math.PI / 180)),
+            duration: 3,
+            ease: "power3.inOut"
+        }, "<");
+
+
+        // --- 7. Animation Loop ---
         function animate() {
             requestAnimationFrame(animate);
             if (autoRotate) {
-                earthGroup.rotation.y += 0.0005; // Very slow drift
+                earthGroup.rotation.y += 0.0005; 
             }
             renderer.render(scene, camera);
             labelRenderer.render(scene, camera);
