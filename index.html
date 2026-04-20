@@ -3,292 +3,352 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gannett Building</title>
-    
-    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
-    
+    <title>Binghamton University Drone Photogrammetry</title>
     <style>
-        body { margin: 0; padding: 0; background-color: #222; overflow: hidden; }
-        
-        /* 3D Viewer Base */
-        model-viewer { 
-            width: 100vw; 
-            height: 100vh; 
-        }
-
-        /* Loading Screen Elements */
-        #loading-overlay {
-            position: absolute;
-            top: 0; 
-            left: 0;
-            width: 100vw; 
-            height: 100vh;
-            background-color: #222;
-            z-index: 5;
-            transition: opacity 1.5s ease-in-out;
-        }
-
-        #loading-overlay.hidden {
-            opacity: 0;
-            pointer-events: none; /* Clicks pass through AFTER it hides */
-        }
-
-        #loading-logo {
-            position: absolute;
-            top: 44%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            height: clamp(80px, 15vw, 150px);
-            width: auto;
-            mix-blend-mode: screen;
-            z-index: 10;
-            transition: opacity 0.5s ease;
-        }
-
-        #loading-logo.hidden {
-            opacity: 0;
-        }
-
-        /* Restored Original Spinner */
-        #spinner {
-            position: absolute;
-            top: calc(44% + 140px);
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 40px;
-            height: 40px;
-            border: 4px solid rgba(255, 255, 255, 0.2);
-            border-top: 4px solid #ffffff;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            z-index: 10;
-            transition: opacity 0.5s ease;
-        }
-
-        #spinner.hidden {
-            opacity: 0;
-        }
-
-        @keyframes spin {
-            0% { transform: translate(-50%, -50%) rotate(0deg); }
-            100% { transform: translate(-50%, -50%) rotate(360deg); }
-        }
-
-        /* Loading Text with Fade */
-        #loading-text {
-            position: absolute;
-            top: calc(44% + 210px);
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #ffffff;
+        body {
+            margin: 0; padding: 0;
+            background-color: #030303;
+            overflow: hidden;
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            font-size: 0.9rem;
+            color: #fff;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            z-index: 1;
+        }
+
+        /* Glassmorphic UI Elements */
+        .glass-panel {
+            background: rgba(20, 20, 20, 0.4);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+            z-index: 10;
+        }
+
+        #ui-panel {
+            position: absolute;
+            bottom: 5%; left: 3%;
+            width: 320px; padding: 25px;
+        }
+
+        #ui-panel h2 {
+            margin: 0 0 15px 0;
+            font-size: 1.3rem;
             letter-spacing: 3px;
             text-transform: uppercase;
-            z-index: 10;
-            opacity: 0.7; /* Base opacity */
-            transition: opacity 0.5s ease; /* Controls the fade speed */
-            white-space: nowrap;
-        }
-
-        /* Used strictly for the complete hide on load */
-        #loading-text.hidden {
-            opacity: 0 !important;
-        }
-
-        /* --- Dark Header UI --- */
-        #title-container {
-            position: absolute;
-            top: 0; 
-            left: 0;
-            width: 100%;
-            background-color: rgba(20, 20, 20, 0.85);
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            display: flex;
-            flex-direction: row; 
-            justify-content: space-between;
-            align-items: center; 
-            padding: 15px 5%;
-            box-sizing: border-box;
-            pointer-events: none;
-            z-index: 10;
-            opacity: 0;
-            transition: opacity 1.5s ease-out; 
+            padding-bottom: 15px;
+            font-weight: 300;
         }
 
-        #title-container.visible { opacity: 1; }
-
-        #building-logo {
-            height: clamp(35px, 5vw, 50px);
-            width: auto;
-            mix-blend-mode: screen; 
+        .model-list {
+            list-style: none;
+            padding: 0; margin: 0;
+            display: flex; flex-direction: column; gap: 10px;
         }
 
-        #building-title {
-            margin: 0;
-            color: #ffffff;
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            font-size: clamp(1.2rem, 4vw, 1.8rem);
-            letter-spacing: 2px;
-            opacity: 0.9;
-            text-shadow: 0px 4px 15px rgba(0, 0, 0, 0.8);
-            white-space: nowrap; 
+        .model-item {
+            padding: 12px 15px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
         }
 
-        /* Custom Interaction Prompt */
-        #custom-prompt {
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            text-align: center;
+        .model-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateX(5px);
+        }
+
+        .model-item h3 {
+            margin: 0 0 3px 0;
+            font-size: 1rem; font-weight: 400;
+        }
+
+        .model-item::before {
+            content: '';
             position: absolute;
-            bottom: 12%;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: rgba(20, 20, 20, 0.4); 
-            backdrop-filter: blur(8px); 
-            -webkit-backdrop-filter: blur(8px); 
-            border: 1px solid rgba(255, 255, 255, 0.15); 
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); 
-            color: #ffffff;
-            padding: 12px 32px; 
-            border-radius: 50px; 
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            font-size: 0.9rem; 
-            font-weight: 400;
-            text-transform: uppercase; 
-            letter-spacing: 2px; 
+            right: 15px; top: 50%;
+            transform: translateY(-50%);
+            width: 6px; height: 6px;
+            background-color: #00ffff;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #00ffff;
+            opacity: 0.2;
+            transition: opacity 0.3s ease;
+        }
+
+        .model-item:hover::before { opacity: 1; }
+
+        /* Project Titles in 3D Space */
+        .poi-label {
+            color: #fff;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            background: rgba(20, 20, 20, 0.6);
+            backdrop-filter: blur(5px);
+            padding: 5px 10px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            white-space: nowrap;
             pointer-events: none;
-            z-index: 10;
-            opacity: 0; 
-            transition: opacity 0.8s ease;
-            animation: pulse 2.5s infinite;
+            opacity: 0.8;
+            margin-top: 20px;
         }
-
-        #custom-prompt.visible { opacity: 1; }
-
-        @keyframes pulse {
-            0% { transform: translateX(-50%) scale(1); }
-            50% { transform: translateX(-50%) scale(1.02); } 
-            100% { transform: translateX(-50%) scale(1); }
-        }
-    </style> 
-</head>  
-
+    </style>
+</head>
 <body>
 
-    <div id="loading-overlay"></div>
-    
-    <img id="loading-logo" src="LogoF.png" alt="Loading Logo">
-    <div id="spinner"></div>
-    <div id="loading-text">Loading Model</div>
-
-    <div id="title-container">
-        <h1 id="building-title">Gannett Building</h1>
-        <img id="building-logo" src="LogoF.png" alt="Gannett Logo">
+    <div id="ui-panel" class="glass-panel">
+        <h2>Binghamton Sites</h2>
+        <ul class="model-list">
+            <li class="model-item" 
+                data-id="gannett" 
+                data-lat="42.0987" data-lon="-75.9125" 
+                data-map="map-gannett.png" 
+                data-url="viewer.html?model=gannett">
+                <h3>Gannett Building</h3>
+            </li>
+            <li class="model-item" 
+                data-id="alpha" 
+                data-lat="42.1030" data-lon="-75.9180" 
+                data-map="map-alpha.png" 
+                data-url="viewer.html?model=alpha">
+                <h3>Innovation Center</h3>
+            </li>
+            <li class="model-item" 
+                data-id="beta" 
+                data-lat="42.0950" data-lon="-75.9050" 
+                data-map="map-beta.png" 
+                data-url="viewer.html?model=beta">
+                <h3>Riverside Complex</h3>
+            </li>
+        </ul>
     </div>
 
-    <div id="custom-prompt">Drag to interact</div>
-    
-    <model-viewer 
-        id="gannett-viewer"
-        src="Gannett-Drive-4-10-2026-textured_model.glb" 
-        skybox-image="sky4.hdr"
-        ar 
-        ar-modes="webxr scene-viewer quick-look"  
-        rotation-per-second="3.15deg"
-        tone-mapping="neutral" 
-        poster="poster.webp" 
-        shadow-intensity="1" 
-        camera-orbit="520.2deg 74.59deg 675m" 
-        field-of-view="12deg" 
-        orientation="0 -90deg 0" 
-        max-camera-orbit="auto 90deg 700m" 
-        min-camera-orbit="auto auto 100.4m" 
-        min-field-of-view="4deg"
-        interpolation-decay="575"
-        interaction-prompt="none"> 
-    </model-viewer>
+    <div id="canvas-container"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 
     <script>
-        const viewer = document.getElementById('gannett-viewer');
-        const titleContainer = document.getElementById('title-container');
-        const overlay = document.getElementById('loading-overlay');
-        const loadingLogo = document.getElementById('loading-logo');
-        const spinner = document.getElementById('spinner');
-        const loadingText = document.getElementById('loading-text');
-        const customPrompt = document.getElementById('custom-prompt');
+        // --- 1. Scene Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        
+        const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 0, 70); // Starts zoomed out
 
-        // --- Fading Text Logic ---
-        const phrases = [
-            "Loading Model", 
-            "Preparing 3D Environment", 
-            "Optimizing Textures", 
-            "Almost Ready"
-        ];
-        let phraseIndex = 0;
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
 
-        // Cycles text every 2.5 seconds
-        const loadingInterval = setInterval(() => {
-            loadingText.style.opacity = '0'; // Fade out
+        const labelRenderer = new THREE.CSS2DRenderer();
+        labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        labelRenderer.domElement.style.position = 'absolute';
+        labelRenderer.domElement.style.top = '0px';
+        labelRenderer.domElement.style.pointerEvents = 'none';
+        container.appendChild(labelRenderer.domElement);
+
+        const earthGroup = new THREE.Group();
+        scene.add(earthGroup);
+
+        // --- 2. Create Wireframe Globe ---
+        const earthRadius = 20;
+
+        // Dark inner core
+        const innerGeom = new THREE.SphereGeometry(earthRadius, 64, 64);
+        const innerMat = new THREE.MeshBasicMaterial({ color: 0x0a0a0a });
+        const innerEarth = new THREE.Mesh(innerGeom, innerMat);
+        earthGroup.add(innerEarth);
+
+        // Wireframe geometric shell
+        const wireGeom = new THREE.IcosahedronGeometry(earthRadius + 0.2, 4);
+        const wireMat = new THREE.MeshBasicMaterial({ 
+            color: 0x444444, 
+            wireframe: true, 
+            transparent: true, 
+            opacity: 0.15 
+        });
+        const wireframeCube = new THREE.Mesh(wireGeom, wireMat);
+        earthGroup.add(wireframeCube);
+
+        // --- 3. Math Helper (Lat/Lon to 3D) ---
+        function getCoordinates(lat, lon, radius) {
+            const phi = (90 - lat) * (Math.PI / 180);
+            const theta = (lon + 180) * (Math.PI / 180);
+            const x = -(radius * Math.sin(phi) * Math.cos(theta));
+            const z = (radius * Math.sin(phi) * Math.sin(theta));
+            const y = (radius * Math.cos(phi));
+            return new THREE.Vector3(x, y, z);
+        }
+
+        // Binghamton Coordinates (for default framing)
+        const binghamtonCoords = { lat: 42.0987, lon: -75.9125 };
+
+        // --- 4. Setup Markers & Terrain Patches ---
+        const textureLoader = new THREE.TextureLoader();
+        const poiGeometry = new THREE.SphereGeometry(0.15, 16, 16);
+        const poiMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+
+        const items = document.querySelectorAll('.model-item');
+        let activePatch = null; // Keeps track of currently visible terrain patch
+
+        items.forEach(item => {
+            const lat = parseFloat(item.getAttribute('data-lat'));
+            const lon = parseFloat(item.getAttribute('data-lon'));
+            const name = item.querySelector('h3').textContent;
+            const mapSrc = item.getAttribute('data-map');
             
-            setTimeout(() => {
-                phraseIndex = (phraseIndex + 1) % phrases.length;
-                loadingText.textContent = phrases[phraseIndex];
-                loadingText.style.opacity = '0.7'; // Fade back in
-            }, 500); // Wait 500ms for the CSS fade-out to complete before changing text
-        }, 2500);
+            // A. Create Cyan Marker
+            const marker = new THREE.Mesh(poiGeometry, poiMaterial);
+            const pos = getCoordinates(lat, lon, earthRadius + 0.3);
+            marker.position.copy(pos);
+            earthGroup.add(marker);
 
-        // --- Animation sequence on load ---
-        viewer.addEventListener('load', () => {
+            // B. Create HTML Label
+            const labelDiv = document.createElement('div');
+            labelDiv.className = 'poi-label';
+            labelDiv.textContent = name;
+            const label = new THREE.CSS2DObject(labelDiv);
+            label.position.set(0, 0, 0);
+            marker.add(label);
+
+            // C. Create the Terrain Overlay Patch (Hidden initially)
+            // A circular patch that hugs the globe
+            const patchGeom = new THREE.CircleGeometry(3, 64); // 3 is the radius size of the terrain map
+            const patchTexture = textureLoader.load(mapSrc);
+            const patchMat = new THREE.MeshBasicMaterial({
+                map: patchTexture,
+                transparent: true,
+                opacity: 0, // Invisible until hover
+                depthWrite: false, // Prevents z-fighting glitches
+                side: THREE.DoubleSide
+            });
+            const terrainPatch = new THREE.Mesh(patchGeom, patchMat);
             
-            // 1. Stop the text from cycling
-            clearInterval(loadingInterval);
+            // Position the patch slightly above the wireframe to prevent clipping
+            const patchPos = getCoordinates(lat, lon, earthRadius + 0.4);
+            terrainPatch.position.copy(patchPos);
+            
+            // Orient the patch to face perfectly outwards from the center of the earth
+            terrainPatch.lookAt(patchPos.clone().multiplyScalar(2));
+            earthGroup.add(terrainPatch);
 
-            // 2. Hide logo, spinner, and loading text immediately
-            loadingLogo.classList.add('hidden');
-            spinner.classList.add('hidden');
-            loadingText.classList.add('hidden');
+            // --- 5. Hover Interactions ---
+            item.addEventListener('mouseenter', () => {
+                autoRotate = false;
+                activePatch = terrainPatch;
 
-            // 3. Wait 800ms, then trigger black overlay fade
-            setTimeout(() => {
-                overlay.classList.add('hidden'); 
+                // Calculate rotation to center the marker
+                const targetRotationY = -((lon - 90) * (Math.PI / 180));
+                const targetRotationX = lat * (Math.PI / 180);
 
-                // Delay the UI fade-in just a fraction of a second
-                setTimeout(() => {
-                    titleContainer.classList.add('visible'); 
-                }, 300);
+                // 1. Rotate Globe
+                gsap.to(earthGroup.rotation, {
+                    x: targetRotationX,
+                    y: targetRotationY,
+                    duration: 1.2,
+                    ease: "power2.out"
+                });
 
-                // Delay the camera zoom slightly
-                setTimeout(() => {
-                    viewer.setAttribute('camera-orbit', '582.2deg 74.59deg 255m'); 
-                }, 400);
+                // 2. Zoom Camera Closer
+                gsap.to(camera.position, {
+                    z: 32, // Zoom in
+                    duration: 1.2,
+                    ease: "power2.out"
+                });
 
-                // 4. Wait for the camera to mostly settle
-                setTimeout(() => {
-                    customPrompt.classList.add('visible');
-                    
-                    // Turn on auto-rotation
-                    viewer.autoRotate = true; 
-                    
-                    // Give user control now that animations are done
-                    viewer.setAttribute('camera-controls', '');
-                    
-                }, 3200); 
+                // 3. Fade in the localized terrain patch
+                gsap.to(terrainPatch.material, {
+                    opacity: 0.9,
+                    duration: 0.8,
+                    delay: 0.3 // slight delay so it fades in while rotating
+                });
+            });
 
-            }, 800);
+            item.addEventListener('mouseleave', () => {
+                // Fade out the terrain patch
+                if (activePatch) {
+                    gsap.to(activePatch.material, {
+                        opacity: 0,
+                        duration: 0.5
+                    });
+                    activePatch = null;
+                }
+
+                // Restore idle Binghamton view
+                gsap.to(earthGroup.rotation, {
+                    x: binghamtonCoords.lat * (Math.PI / 180),
+                    y: -((binghamtonCoords.lon - 90) * (Math.PI / 180)),
+                    duration: 1.5,
+                    ease: "power2.inOut",
+                    onComplete: () => { autoRotate = true; }
+                });
+
+                gsap.to(camera.position, {
+                    z: 45, // Pull back out slightly
+                    duration: 1.5,
+                    ease: "power2.inOut"
+                });
+            });
+
+            item.addEventListener('click', () => {
+                const url = item.getAttribute('data-url');
+                document.getElementById('ui-panel').style.opacity = '0';
+                
+                // Rapid zoom into the terrain map before redirecting
+                gsap.to(camera.position, {
+                    z: earthRadius + 1.5,
+                    duration: 0.8,
+                    ease: "power3.in",
+                    onComplete: () => { window.location.href = url; }
+                });
+            });
         });
 
-        // Hide custom prompt the moment the user interacts
-        viewer.addEventListener('camera-change', (event) => {
-            if (event.detail.source === 'user-interaction') {
-                customPrompt.classList.remove('visible');
-                viewer.setAttribute('interpolation-decay', '100');
+        // --- 6. Initial Positioning & Animation ---
+        let autoRotate = true;
+
+        // Start facing Binghamton immediately
+        earthGroup.rotation.x = binghamtonCoords.lat * (Math.PI / 180);
+        earthGroup.rotation.y = -((binghamtonCoords.lon - 90) * (Math.PI / 180));
+
+        // Intro Zoom-in
+        gsap.to(camera.position, {
+            z: 45,
+            duration: 2.5,
+            ease: "power2.out"
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (autoRotate) {
+                earthGroup.rotation.y += 0.0005; // Very slow drift
             }
+            renderer.render(scene, camera);
+            labelRenderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            labelRenderer.setSize(window.innerWidth, window.innerHeight);
         });
     </script>
-
 </body>
 </html>
