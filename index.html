@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Binghamton Development Atlas</title>
+    <title>Binghamton University Drone Mapping </title>
     
     <style>
         body { 
@@ -245,15 +245,15 @@
     <div id="loading-overlay"></div>
     <img id="loading-logo" src="LogoF.png" alt="Loading Logo">
     <div id="spinner"></div>
-    <div id="loading-text">Loading Atlas</div>
+    <div id="loading-text">Loading Maps</div>
 
     <div id="title-container">
-        <h1 id="building-title">Binghamton Drone Atlas</h1>
+        <h1 id="building-title">Binghamton University Drone Mapping</h1>
         <img id="building-logo" src="LogoF.png" alt="University Logo">
     </div>
 
     <div id="ui-panel" class="glass-panel">
-        <h2>University Sites</h2>
+        <h2>University Models</h2>
         <ul class="model-list">
             <li class="model-item" data-id="gannett" data-lat="42.0987" data-lon="-75.9125" data-map="map-gannett.png" data-url="viewer.html?model=gannett">
                 <h3>Gannett Building</h3><p class="coord-display">42.0987° N, -75.9125° W</p>
@@ -284,7 +284,7 @@
         const loadingText = document.getElementById('loading-text');
         const titleContainer = document.getElementById('title-container');
 
-        const phrases = ["Loading Atlas", "Fetching GeoJSON", "Building 3D Globe", "Optimizing Terrain", "Almost Ready"];
+        const phrases = ["Loading Maps", "Fetching GeoJSON", "Building 3D Globe", "Optimizing Terrain", "Almost Ready"];
         let phraseIndex = 0;
 
         const loadingInterval = setInterval(() => {
