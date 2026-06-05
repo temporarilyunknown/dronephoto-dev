@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Binghamton University Drone Mapping </title>
-    
+    <title>Binghamton University Drone Mapping</title>
+
     <style>
         body { 
             margin: 0; padding: 0; 
@@ -253,19 +253,19 @@
     </div>
 
     <div id="ui-panel" class="glass-panel">
-        <h2>Interactive Models</h2>
+        <h2>University Sites</h2>
         <ul class="model-list">
             <li class="model-item" data-id="gannett" data-lat="42.0987" data-lon="-75.9125" data-map="map-gannett.png" data-url="viewer.html?model=gannett">
                 <h3>Gannett Building</h3><p class="coord-display">42.0987° N, -75.9125° W</p>
             </li>
             <li class="model-item" data-id="main" data-lat="42.0885" data-lon="-75.9680" data-map="map-main.png" data-url="viewer.html?model=main">
-                <h3>Physical Facilities</h3><p class="coord-display">42.0885° N, -75.9680° W</p>
+                <h3>BU Main Campus</h3><p class="coord-display">42.0885° N, -75.9680° W</p>
             </li>
             <li class="model-item" data-id="udc" data-lat="42.0974" data-lon="-75.9126" data-map="map-udc.png" data-url="viewer.html?model=udc">
-                <h3>University Downtown Center</h3><p class="coord-display">42.0974° N, -75.9126° W</p>
+                <h3>Downtown Center</h3><p class="coord-display">42.0974° N, -75.9126° W</p>
             </li>
             <li class="model-item" data-id="hsc" data-lat="42.1121" data-lon="-75.9587" data-map="map-hsc.png" data-url="viewer.html?model=hsc">
-                <h3>AI Research Center</h3><p class="coord-display">42.1121° N, -75.9587° W</p>
+                <h3>Health Sciences Campus</h3><p class="coord-display">42.1121° N, -75.9587° W</p>
             </li>
         </ul>
     </div>
@@ -300,7 +300,7 @@
         // --- 2. 3D Scene Setup ---
         const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
-        
+
         const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.01, 1000);
         camera.position.set(0, 0, 150); 
 
@@ -396,7 +396,7 @@
         const binghamtonCoords = { lat: 42.0987, lon: -75.9125 };
         const poiGeometry = new THREE.SphereGeometry(0.003, 16, 16); 
         const textureLoader = new THREE.TextureLoader();
-        
+
         const items = document.querySelectorAll('.model-item');
         const labels = [];
         let tourTimer = null;
@@ -416,7 +416,7 @@
             const lon = parseFloat(item.getAttribute('data-lon'));
             const name = item.querySelector('h3').textContent;
             const coordText = item.querySelector('.coord-display').textContent;
-            
+
             const markerMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0 });
             const marker = new THREE.Mesh(poiGeometry, markerMat);
             const pos = getCoordinates(lat, lon, layerPatches + 0.01);
@@ -447,7 +447,7 @@
             const patchTexture = textureLoader.load(item.getAttribute('data-map'));
             const patchMat = new THREE.MeshBasicMaterial({ map: patchTexture, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
             const terrainPatch = new THREE.Mesh(patchGeom, patchMat);
-            
+
             const patchPos = getCoordinates(lat, lon, layerPatches);
             terrainPatch.position.copy(patchPos);
             terrainPatch.lookAt(patchPos.clone().multiplyScalar(2));
@@ -462,7 +462,7 @@
 
             item.addEventListener('click', (e) => {
                 const url = item.getAttribute('data-url');
-                
+
                 if (!url || url === "#" || url === "") {
                     console.warn("No valid URL found for this location.");
                     return; 
@@ -474,7 +474,7 @@
                 titleContainer.style.opacity = '0';
                 labels.forEach(l => l.style.opacity = '0');
                 markers.forEach(m => gsap.to(m.material, { opacity: 0, duration: 0.5 }));
-                
+
                 gsap.killTweensOf(earthGroup.rotation);
                 gsap.killTweensOf(camera.position);
 
@@ -502,16 +502,16 @@
                 document.body.style.pointerEvents = 'auto'; 
                 document.getElementById('ui-panel').style.opacity = '1';
                 titleContainer.style.opacity = '1';
-                
+
                 gsap.killTweensOf(camera.position);
                 camera.position.set(0, 0, getOverviewZ()); 
-                
+
                 resetToOverview();
             }
         });
 
         // --- 3. Camera Interaction Functions ---
-        
+
         function focusItem(index, isAutoTour = false) {
             gsap.killTweensOf(earthGroup.rotation);
             gsap.killTweensOf(camera.position);
@@ -534,12 +534,12 @@
 
             const item = items[index];
             item.classList.add('active'); 
-            
+
             const targetRotationY = getShortestRotationY(earthGroup.rotation.y, item._lon);
             const targetRotationX = item._lat * (Math.PI / 180);
 
             gsap.to(earthGroup.rotation, { x: targetRotationX, y: targetRotationY, duration: 2.8, ease: "power2.inOut" });
-            
+
             // Adjust zoom dynamically based on screen width
             gsap.to(camera.position, { z: getFocusZ(), duration: 2.8, ease: "power2.inOut" });
 
@@ -579,7 +579,7 @@
 
             const targetRotationY = getShortestRotationY(earthGroup.rotation.y, binghamtonCoords.lon);
             gsap.to(earthGroup.rotation, { x: binghamtonCoords.lat * (Math.PI / 180), y: targetRotationY, duration: 2.8, ease: "power2.inOut" });
-            
+
             // Adjust overview zoom dynamically
             gsap.to(camera.position, { z: getOverviewZ(), duration: 2.8, ease: "power2.inOut" });
         }
@@ -611,7 +611,7 @@
 
                 const usLon = -98; 
                 const usRotY = -(usLon + 90) * (Math.PI / 180);
-                
+
                 tl.to(camera.position, { z: 40, duration: 2.5, ease: "power2.inOut" }, "+=0.2");
                 tl.to(earthGroup.rotation, { 
                     x: 38 * (Math.PI / 180), 
@@ -641,7 +641,7 @@
 
             const dist = camera.position.distanceTo(scene.position);
             const scaleFactor = Math.max(0.3, dist / 150); 
-            
+
             markers.forEach(m => {
                 m.scale.set(scaleFactor, scaleFactor, scaleFactor);
             });
@@ -656,7 +656,7 @@
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
             labelRenderer.setSize(window.innerWidth, window.innerHeight);
-            
+
             // Adjust camera position immediately on resize if resting in overview
             if (tourTimer) {
                 gsap.to(camera.position, { z: getOverviewZ(), duration: 0.5 });
